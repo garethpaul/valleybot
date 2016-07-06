@@ -1,0 +1,11 @@
+language: python
+
+branches:
+  only:
+    - master
+
+matrix:
+  fast_finish: true
+  include:
+    - python: 2.7
+      script: flake8 *.py --ignore=E402,E501 && python bot_tests.py

@@ -16,14 +16,20 @@ logger.setLevel(logging.DEBUG)
 
 
 def check_for_greeting(sentence):
-    """If any of the words in the user's input was a greeting, return a greeting response"""
+    """
+    If any of the words in the user's input was a greeting, return a greeting
+    response
+    """
     for word in sentence.words:
         if word.lower() in config.GREETING_KEYWORDS:
             return random.choice(config.GREETING_RESPONSES)
 
 
 class UnacceptableUtteranceException(Exception):
-    """Raise this (uncaught) exception if the response was going to trigger our blacklist"""
+    """
+    Raise this (uncaught) exception if the response was going to trigger our
+    blacklist
+    """
     pass
 
 
@@ -38,17 +44,20 @@ def json_request(json_payload, context):
 
 
 def chatback(sentence):
-    """Main program loop: select a response for the input sentence and return it"""
+    """
+    Main program loop: select a response for the input sentence and return it
+    """
     logger.info("Chatback: respond to %s", sentence)
     resp = respond(sentence)
     return resp
 
 
 def find_pronoun(sent):
-    """Given a sentence, find a preferred pronoun to respond with. Returns None if no candidate
-    pronoun is found in the input"""
+    """
+    Given a sentence, find a preferred pronoun to respond with. Returns None if
+    no candidate pronoun is found in the input
+    """
     pronoun = None
-
     for word, part_of_speech in sent.pos_tags:
         # Disambiguate pronouns
         if part_of_speech == 'PRP' and word.lower() == 'you':
@@ -98,15 +107,19 @@ def find_adjective(sent):
 
 
 def construct_response(pronoun, noun, verb):
-    """No special cases matched, so we're going to try to construct a full sentence that uses as much
-    of the user's input as possible"""
+    """
+    No special cases matched, so we're going to try to construct a full
+    sentence that uses as much of the user's input as possible
+    """
     resp = []
 
     if pronoun:
         resp.append(pronoun)
 
-    # We always respond in the present tense, and the pronoun will always either be a passthrough
-    # from the user, or 'you' or 'I', in which case we might need to change the tense for some
+    # We always respond in the present tense, and the pronoun will always
+    # either be a passthrough
+    # from the user, or 'you' or 'I', in which case we might need to change the
+    # tense for some
     # irregular verbs.
     if verb:
         verb_word = verb[0]
@@ -125,14 +138,17 @@ def construct_response(pronoun, noun, verb):
         pronoun = "an" if starts_with_vowel(noun) else "a"
         resp.append(pronoun + " " + noun)
 
-    resp.append(random.choice(("tho", "bro", "lol", "bruh", "smh", "")))
+    resp.append(random.choice(("tho", "bro", "lol", "smh", "")))
 
     return " ".join(resp)
 
 
 def check_for_comment_about_bot(pronoun, noun, adjective):
-    """Check if the user's input was about the bot itself, in which case try to fashion a response
-    that feels right based on their input. Returns the new best sentence, or None."""
+    """
+    Check if the user's input was about the bot itself, in which case try to
+    fashion a response that feels right based on their input. Returns the new
+    best sentence, or None.
+    """
     resp = None
     if pronoun == 'I' and (noun or adjective):
         if noun:
@@ -149,8 +165,10 @@ def check_for_comment_about_bot(pronoun, noun, adjective):
 
 
 def preprocess_text(sentence):
-    """Handle some weird edge cases in parsing, like 'i' needing to be capitalized
-    to be correctly identified as a pronoun"""
+    """
+    Handle some weird edge cases in parsing, like 'i' needing to be
+    capitalized to be correctly identified as a pronoun
+    """
     cleaned = []
     words = sentence.split(' ')
     for w in words:
@@ -164,17 +182,22 @@ def preprocess_text(sentence):
 
 
 def respond(sentence):
-    """Parse the user's inbound sentence and find candidate terms that make up a best-fit response"""
+    """
+    Parse the user's inbound sentence and find candidate terms that make up
+    a best-fit response
+    """
     cleaned = preprocess_text(sentence)
     parsed = TextBlob(cleaned)
 
-    # Loop through all the sentences, if more than one. This will help extract the most relevant
-    # response text even across multiple sentences (for example if there was no obvious direct noun
+    # Loop through all the sentences, if more than one. This will help extract
+    # the most relevant
+    # response text even across multiple sentences (for example if there was no
+    # obvious direct noun
     # in one sentence
     pronoun, noun, adjective, verb = find_candidate_parts_of_speech(parsed)
 
-    # If we said something about the bot and used some kind of direct noun, construct the
-    # sentence around that, discarding the other candidates
+    # If we said something about the bot and used some kind of direct noun,
+    # construct the sentence around that, discarding the other candidates
     resp = check_for_comment_about_bot(pronoun, noun, adjective)
 
     # If we just greeted the bot, we'll use a return greeting
@@ -202,8 +225,13 @@ def respond(sentence):
 
 
 def find_candidate_parts_of_speech(parsed):
-    """Given a parsed input, find the best pronoun, direct noun, adjective, and verb to match their input.
-    Returns a tuple of pronoun, noun, adjective, verb any of which may be None if there was no good match"""
+    """
+    Given a parsed input, find the best pronoun, direct noun, adjective, and
+    verb to match their input.
+
+    Returns a tuple of pronoun, noun, adjective, verb any of which may be None
+    if there was no good match
+    """
     pronoun = None
     noun = None
     adjective = None
@@ -226,8 +254,6 @@ def filter_response(resp):
     """Don't allow any words to match our filter list"""
     tokenized = resp.split(' ')
     for word in tokenized:
-        if '@' in word or '#' in word or '!' in word:
-            raise UnacceptableUtteranceException()
         for s in config.FILTER_WORDS:
             if word.lower().startswith(s):
                 raise UnacceptableUtteranceException()
