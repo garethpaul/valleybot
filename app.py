@@ -1,8 +1,9 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 from sys import argv
-from bottle import Bottle, template, request, response, debug, run
+from bottle import Bottle, template, request, response, debug
 import bot
+import json
 debug(True)
 
 app = Bottle()
@@ -16,7 +17,7 @@ def chat():
     """
     chat = request.query['chat']
     response.content_type = 'application/json'
-    return bot.respond(chat)
+    return json.dumps({"data": bot.respond(chat)})
 
 
 @app.get('/')
@@ -31,4 +32,4 @@ def index():
     return template('index.tpl', info)
 
 if __name__ == '__main__':
-    run(host='0.0.0.0', port=argv[1])
+    app.run(host='0.0.0.0', port=argv[1])
