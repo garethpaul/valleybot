@@ -60,6 +60,9 @@ class BotTest(unittest.TestCase):
 
 class TestBottleApp(unittest.TestCase):
 
+    def setUp(self):
+            pass
+
     def test_app(self):
         # get response for index
         response = test_app.get('/')
