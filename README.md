@@ -51,10 +51,17 @@ zip -rf ~/ValleyBot.zip *
 
  ### Heroku
 
-   ###### 1. Create a Heroku Instance
+###### 1. Create a Heroku Instance
 
  ```
  heroku create
 
  ```
-    ###### 2. Git push heroku master
+
+
+###### 2. Push to Heroku
+
+```
+
+git push heroku master
+```
