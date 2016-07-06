@@ -1,0 +1,7 @@
+{
+  "name": "Valley Bot App",
+  "description": "A valley 'person' bot.",
+  "image": "heroku/python",
+  "repository": "https://github.com/garethpaul/valleybot",
+  "keywords": ["python", "valleybot" ]
+}
