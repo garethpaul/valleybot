@@ -4,6 +4,7 @@
 A chatbot based on tech talk.
 
 <img src="screenshots/screenshot01.png" style="width:500px; border-radius:4px" />
+<img src="screenshots/screenshot02.png" style="width:500px; border-radius:4px; margin-top:15px" />
 
 ## How to get started ?
 
