@@ -1,3 +1,5 @@
+[![Build Status](https://travis-ci.org/garethpaul/valleybot.svg?branch=master)](https://travis-ci.org/garethpaul/valleybot)
+
 # ValleyBot
 <img src="screenshots/logo.png" />
 
@@ -8,25 +10,25 @@ A chatbot based on tech talk.
 
 ## How to get started ?
 
- #####  1.  Initially clone the repo.
+#####  1.  Initially clone the repo.
 
 ```
 git clone https://github.com/garethpaul/valleybot.git
 ```
 
- #####  2.  Get the requirements for the project
+#####  2.  Get the requirements for the project
 
 ```
 pip install -r requirements.txt
 ```
 
- #####  3. (option 1)  Run the server
+#####  3. (option 1)  Run the server
 
 ```
 python ./app.py {port}
 ```
 
- #####  3. (option 2)  Python
+#####  3. (option 2)  Python
 
  ```
 import bot
@@ -37,27 +39,27 @@ bot.respond("Hello there valley bot what's going on?")
 
 ### AWS Lambda
 
- ###### 1. Run through the install process above.
- ###### 2. Zip up the contents of this project.
+###### 1. Run through the install process above.
+###### 2. Zip up the contents of this project.
 
 ```
 zip -rf ~/ValleyBot.zip *
 ```
 
- ###### 3. Upload the zip to S3
- ###### 4. Input your S3 url inside Lambda
- ###### 4. Point your lambda function to run bot.respond_json
- ###### 5. You will then get a API URL from Lambda to run the bot.
+###### 3. Upload the zip to S3
+###### 4. Input your S3 url inside Lambda
+###### 4. Point your lambda function to run bot.respond_json
+###### 5. You will then get a API URL from Lambda to run the bot.
 
 
- ### Heroku
+### Heroku
 
 ###### 1. Create a Heroku Instance
 
- ```
- heroku create
+```
+heroku create
 
- ```
+```
 
 
 ###### 2. Push to Heroku
