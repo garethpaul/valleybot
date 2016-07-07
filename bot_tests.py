@@ -85,6 +85,7 @@ class TestSlack(unittest.TestCase):
         self.assertEqual(response.status_int, 200)
         self.assertTrue(len(response.body) >= 1)
 
+
 class TestFacebook(unittest.TestCase):
 
     def setUp(self):
