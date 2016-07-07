@@ -4,17 +4,21 @@ from sys import argv
 from bottle import Bottle, template, request, response, debug
 import bot
 import json
+import slack
 
 debug(True)
 
 app = Bottle()
 
+
 @app.post('/slack')
-def slack():
+def slack_handler():
     """
     Handler for slack
     """
+    slack.slack_handler(request.json)
     return "hello slack"
+
 
 @app.get('/bot')
 def chat():
