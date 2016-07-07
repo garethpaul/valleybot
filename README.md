@@ -1,10 +1,11 @@
 [![Build Status](https://travis-ci.org/garethpaul/valleybot.svg?branch=master)](https://travis-ci.org/garethpaul/valleybot)
+[![Code Climate](https://codeclimate.com/github/garethpaul/valleybot/badges/gpa.svg)](https://codeclimate.com/github/garethpaul/valleybot)
 
 <img src="screenshots/title.png" width="350" style="display:inline"/>
 <img src="screenshots/logo.png" width="50" style="display:inline"/>
 
 
-A chatbot based on valley stereotypes. 
+A chatbot based on valley stereotypes.
 
 #### Integrations
 
