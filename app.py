@@ -39,10 +39,13 @@ def messenger_post():
     """
     data = request.json
     # parse the sender and the message from json
-    sender = data['entry'][0]['messaging'][0]['sender']['id']
-    message = data['entry'][0]['messaging'][0]['message']['text']
+    msg_data = data['entry'][0]['messaging'][0]
+    sender = msg_data['sender']['id']
+    message = msg_data['message']['text']
     # send message to get bot
-    messenger_reply(sender, message)
+    if not data['debug']:
+        messenger_reply(sender, str(message))
+
     # must send back response quickly
     return "ok"
 
@@ -56,7 +59,7 @@ def messenger_reply(user_id, msg):
         "message": {"text": bot.respond(msg)}
     }
     resp = requests.post(settings.messenger_url, json=data)
-    print(resp.content)
+    return resp.content
 
 
 # WEB BOT INTEGRATION

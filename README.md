@@ -1,25 +1,30 @@
 [![Build Status](https://travis-ci.org/garethpaul/valleybot.svg?branch=master)](https://travis-ci.org/garethpaul/valleybot)
 
-# ValleyBot
-<img src="screenshots/logo.png" />
+<img src="screenshots/title.png" width="350" style="display:inline"/>
+<img src="screenshots/logo.png" width="50" style="display:inline"/>
 
-A chatbot based on tech talk.
+
+A chatbot based on valley stereotypes. 
 
 #### Integrations
 
 Here are some popular chatbot integrations.
 
+**Facebook**
+
+<img src="screenshots/screenshot04.png" width="240" style="width:240px; margin-top:15px" />
+
 **Slack**
 
-<img src="screenshots/screenshot03.png" style="width:500px; border-radius:4px; margin-top:15px" />
+<img src="screenshots/screenshot03.png" width="500" style="width:500px; border-radius:4px; margin-top:15px" />
 
 **Web**
 
-<img src="screenshots/screenshot01.png" style="width:500px; border-radius:4px" />
+<img src="screenshots/screenshot01.png" width="500" style="width:500px; border-radius:4px" />
 
 **Terminal**
 
-<img src="screenshots/screenshot02.png" style="width:500px; border-radius:4px; margin-top:15px" />
+<img src="screenshots/screenshot02.png" width="500" style="width:500px; border-radius:4px; margin-top:15px" />
 
 ## Settings
 
