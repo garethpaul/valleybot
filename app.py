@@ -4,6 +4,8 @@ from sys import argv
 from bottle import Bottle, template, request, response, debug
 import bot
 import json
+import requests
+import settings
 
 debug(True)
 
@@ -23,6 +25,22 @@ def slack_handler():
 def messenger_webhook():
     challenge = request.query.get("hub.challenge")
     return challenge
+
+@app.post('/messenger/webhook')
+def messenger_post():
+    data = request.json
+    sender = data['entry'][0]['messaging'][0]['sender']['id']
+    message = data['entry'][0]['messaging'][0]['message']['text']
+    reply(sender, message[::-1])
+    return "ok"
+
+def reply(user_id, msg):
+    data = {
+        "recipient": {"id": user_id},
+        "message": {"text": msg}
+    }
+    resp = requests.post(settings.messenger_url, json=data)
+    print(resp.content)
 
 
 @app.get('/bot')
