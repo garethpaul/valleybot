@@ -26,13 +26,16 @@ def messenger_webhook():
     challenge = request.query.get("hub.challenge")
     return challenge
 
+
 @app.post('/messenger/webhook')
 def messenger_post():
     data = request.json
+    print data
     sender = data['entry'][0]['messaging'][0]['sender']['id']
     message = data['entry'][0]['messaging'][0]['message']['text']
     reply(sender, message[::-1])
     return "ok"
+
 
 def reply(user_id, msg):
     data = {
