@@ -11,6 +11,7 @@ debug(True)
 
 app = Bottle()
 
+
 # SLACK INTEGRATION
 @app.post('/slack')
 def slack_handler():
