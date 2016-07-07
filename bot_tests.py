@@ -14,11 +14,15 @@ test_app = TestApp(app.app)
 class BotTest(unittest.TestCase):
 
     def setUp(self):
-        pass
+        self.greeting = TextBlob("hello there")
+        self.pronoun = TextBlob("On saturday I will meet joe.")
+        self.verb = TextBlob("She smells the pizza.")
+        self.noun = TextBlob("She smells the pizza.")
+        self.adjective = TextBlob("This shop is much nicer")
+        self.construct = TextBlob("What a beautiful car, you look great")
 
     def testGreeting(self):
-        greeting = TextBlob("hello there")
-        self.assertTrue(bot.check_for_greeting(greeting))
+        self.assertTrue(bot.check_for_greeting(self.greeting))
 
     def testVowel(self):
         word = "acorn"
@@ -30,30 +34,25 @@ class BotTest(unittest.TestCase):
                                          context=None))
 
     def testPronoun(self):
-        sentence = TextBlob("On saturday I will meet joe.")
-        pronoun = bot.find_pronoun(sentence)
+        pronoun = bot.find_pronoun(self.pronoun)
         self.assertEqual(pronoun, "You")
 
     def testVerb(self):
-        sentence = TextBlob("She smells the pizza.")
-        r = bot.find_verb(sentence)
+        r = bot.find_verb(self.verb)
         self.assertEqual(r[0], "smells")
 
     def testNoun(self):
-        sentence = TextBlob("She smells the pizza.")
-        r = bot.find_noun(sentence)
+        r = bot.find_noun(self.noun)
         self.assertEqual(r, "pizza")
 
     def testAdjective(self):
-        sentence = TextBlob("This shop is much nicer")
-        r = bot.find_adjective(sentence)
+        r = bot.find_adjective(self.adjective)
         self.assertEqual(r, "much")
 
     def testConstructResp(self):
-        sentence = TextBlob("What a beautiful car, you look great")
-        pronoun = bot.find_pronoun(sentence)
-        noun = bot.find_noun(sentence)
-        verb = bot.find_verb(sentence)
+        pronoun = bot.find_pronoun(self.construct)
+        noun = bot.find_noun(self.construct)
+        verb = bot.find_verb(self.construct)
         r = bot.construct_response(pronoun, noun, verb)
         self.assertTrue("car" in r)
 
