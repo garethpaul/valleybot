@@ -11,7 +11,7 @@ debug(True)
 
 app = Bottle()
 
-
+# SLACK INTEGRATION
 @app.post('/slack')
 def slack_handler():
     """
@@ -21,31 +21,44 @@ def slack_handler():
     return bot.respond(command_text)
 
 
+# FACEBOOK MESSENGER INTEGRATION
 @app.get('/messenger/webhook')
 def messenger_webhook():
+    """
+    A webhook to return a challenge
+    """
     challenge = request.query.get("hub.challenge")
     return challenge
 
 
 @app.post('/messenger/webhook')
 def messenger_post():
+    """
+    Handler for webhook (currently for postback and messages)
+    """
     data = request.json
-    print data
+    # parse the sender and the message from json
     sender = data['entry'][0]['messaging'][0]['sender']['id']
     message = data['entry'][0]['messaging'][0]['message']['text']
-    reply(sender, message[::-1])
+    # send message to get bot
+    messenger_reply(sender, message)
+    # must send back response quickly
     return "ok"
 
 
-def reply(user_id, msg):
+def messenger_reply(user_id, msg):
+    """
+    Function for returning data back to facebook
+    """
     data = {
         "recipient": {"id": user_id},
-        "message": {"text": msg}
+        "message": {"text": bot.respond(msg)}
     }
     resp = requests.post(settings.messenger_url, json=data)
     print(resp.content)
 
 
+# WEB BOT INTEGRATION
 @app.get('/bot')
 def chat():
     """
