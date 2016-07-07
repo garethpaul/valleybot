@@ -19,6 +19,12 @@ def slack_handler():
     return bot.respond(command_text)
 
 
+@app.get('/messenger/webhook')
+def messenger_webhook():
+    challenge = request.query.get("hub.challenge")
+    return challenge
+
+
 @app.get('/bot')
 def chat():
     """
