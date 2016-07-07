@@ -7,12 +7,24 @@ A chatbot based on tech talk.
 
 #### Integrations
 
-Here are some integrations for valleybot
+Here are some popular chatbot integrations.
+
+**Slack**
+
+<img src="screenshots/screenshot03.png" style="width:500px; border-radius:4px; margin-top:15px" />
+
 **Web**
 
 <img src="screenshots/screenshot01.png" style="width:500px; border-radius:4px" />
+
+**Terminal**
+
 <img src="screenshots/screenshot02.png" style="width:500px; border-radius:4px; margin-top:15px" />
-<img src="screenshots/screenshot03.png" style="width:500px; border-radius:4px; margin-top:15px" />
+
+## Settings
+
+Currently we have chatbot integrations for Facebook, Slack, Web and Local Access. The settings file contains more information on settings for these bot channels.
+
 
 ## How to get started ?
 
