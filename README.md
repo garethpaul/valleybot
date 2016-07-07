@@ -1,9 +1,10 @@
 [![Build Status](https://travis-ci.org/garethpaul/valleybot.svg?branch=master)](https://travis-ci.org/garethpaul/valleybot)
 
-# ValleyBot
-<img src="screenshots/logo.png" />
+<img src="screenshots/title.png" width="350" style="display:inline"/>
+<img src="screenshots/logo.png" width="50" style="display:inline"/>
 
-A chatbot based on tech talk.
+
+A chatbot based on valley stereotypes. 
 
 #### Integrations
 
