@@ -87,7 +87,9 @@ class TestSlack(unittest.TestCase):
 
 
 class TestFacebook(unittest.TestCase):
-
+    """
+    Test Cases for FB Messenger Chat Bot Integration
+    """
     def setUp(self):
         """
         Setup the data for the test.
