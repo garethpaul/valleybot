@@ -16,8 +16,7 @@ def slack_handler():
     """
     Handler for slack
     """
-    slack.slack_handler(request.json)
-    return "hello slack"
+    return slack.slack_handler(request.json)
 
 
 @app.get('/bot')
