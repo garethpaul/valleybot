@@ -8,6 +8,7 @@ expected_token = settings.slack_token
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 
+
 def slack_handler(event):
     req_body = event['body']
     params = parse_qs(req_body)
