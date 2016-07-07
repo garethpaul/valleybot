@@ -11,19 +11,19 @@ Here are some popular chatbot integrations.
 
 **Facebook**
 
-<img src="screenshots/screenshot04.png" style="width:240px; border-radius:4px; margin-top:15px" />
+<img src="screenshots/screenshot04.png" width="240" style="width:240px; margin-top:15px" />
 
 **Slack**
 
-<img src="screenshots/screenshot03.png" style="width:500px; border-radius:4px; margin-top:15px" />
+<img src="screenshots/screenshot03.png" width="500" style="width:500px; border-radius:4px; margin-top:15px" />
 
 **Web**
 
-<img src="screenshots/screenshot01.png" style="width:500px; border-radius:4px" />
+<img src="screenshots/screenshot01.png" width="500" style="width:500px; border-radius:4px" />
 
 **Terminal**
 
-<img src="screenshots/screenshot02.png" style="width:500px; border-radius:4px; margin-top:15px" />
+<img src="screenshots/screenshot02.png" width="500" style="width:500px; border-radius:4px; margin-top:15px" />
 
 ## Settings
 
