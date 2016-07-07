@@ -38,7 +38,6 @@ def messenger_post():
     Handler for webhook (currently for postback and messages)
     """
     data = request.json
-    print data
     # parse the sender and the message from json
     sender = data['entry'][0]['messaging'][0]['sender']['id']
     message = data['entry'][0]['messaging'][0]['message']['text']
