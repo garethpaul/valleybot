@@ -46,13 +46,29 @@ def messenger_post():
     Handler for webhook (currently for postback and messages)
     """
     data = request.json
-    # parse the sender and the message from json
-    msg_data = data['entry'][0]['messaging'][0]
-    sender = msg_data['sender']['id']
-    message = msg_data['message']['text']
-    # send message to get bot
-    if not data['debug']:
-        messenger_reply(sender, str(message))
+    if not isinstance(data, dict):
+        response.status = 400
+        return "invalid payload"
+
+    entries = data.get('entry')
+    if not isinstance(entries, list):
+        return "ok"
+
+    for entry in entries:
+        if not isinstance(entry, dict):
+            continue
+        messages = entry.get('messaging')
+        if not isinstance(messages, list):
+            continue
+        for msg_data in messages:
+            if not isinstance(msg_data, dict):
+                continue
+            sender = msg_data.get('sender') or {}
+            message = msg_data.get('message') or {}
+            sender_id = sender.get('id') if isinstance(sender, dict) else None
+            message_text = message.get('text') if isinstance(message, dict) else None
+            if sender_id and message_text and not data.get('debug'):
+                messenger_reply(sender_id, str(message_text))
 
     # must send back response quickly
     return "ok"
@@ -66,7 +82,11 @@ def messenger_reply(user_id, msg):
         "recipient": {"id": user_id},
         "message": {"text": bot.respond(msg)}
     }
+    headers = {
+        "Authorization": "Bearer " + settings.messenger_token
+    }
     resp = requests.post(settings.messenger_url, json=data,
+                         headers=headers,
                          timeout=REQUEST_TIMEOUT)
     resp.raise_for_status()
     return resp.content
