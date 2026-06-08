@@ -19,6 +19,10 @@ The webhook verification handler echoes the platform challenge without checking 
 
 Read `hub.verify_token`, compare it with a configured secret using a constant-time comparison where practical, return the challenge only on match, and reject mismatches with a deterministic 403 or 400 response.
 
+## Status
+
+Fixed on 2026-06-08. The Messenger verification route now compares `hub.verify_token` with `MESSENGER_VERIFY_TOKEN` before returning the challenge, and rejects mismatches with 403.
+
 ## Review metadata
 
 - Repository: `garethpaul/valleybot`

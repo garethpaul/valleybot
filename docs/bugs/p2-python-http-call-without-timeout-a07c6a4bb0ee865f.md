@@ -16,6 +16,10 @@ Python HTTP clients default to waiting forever when no timeout is set. If an ups
 
 Pass a bounded `timeout` to each `requests` or `urlopen` call, choose separate connect/read values where useful, and handle timeout exceptions with a clear retry or error path.
 
+## Status
+
+Fixed on 2026-06-08. Messenger replies now pass a configurable `REQUEST_TIMEOUT` value to `requests.post`.
+
 ## Review metadata
 
 - Repository: `garethpaul/valleybot`

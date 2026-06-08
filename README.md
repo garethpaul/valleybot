@@ -51,13 +51,19 @@ The setup commands above are derived from repository files. Legacy mobile, Pytho
 
 ## Testing and Verification
 
-- `python -m pytest` or the test runner used by the files above
+- `make verify` runs syntax checks and dependency-free Messenger and Slack route contract checks.
+- `make check` runs `make verify` with bytecode cleanup before and after.
+- `python scripts/check_valleybot_contracts.py` runs just the webhook and token-handling contracts.
+- `python -m unittest bot_tests` runs the legacy Python 2 test suite when its dependencies are installed.
 
 When the required SDK or runtime is unavailable, use static checks and source review first, then verify on a machine that has the matching platform toolchain.
 
 ## Configuration and Secrets
 
-- No required secret or credential file was identified in the repository scan. If you add integrations later, keep secrets out of git.
+- `SLACK_TOKEN` configures the Slack integration.
+- `MESSENGER_TOKEN` configures Facebook Messenger API replies.
+- `MESSENGER_VERIFY_TOKEN` configures Messenger webhook verification; it falls back to `MESSENGER_TOKEN` for older deployments.
+- `REQUEST_TIMEOUT` optionally overrides outbound Messenger request timeout seconds.
 
 ## Security and Privacy Notes
 

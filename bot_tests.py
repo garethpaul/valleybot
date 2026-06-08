@@ -1,7 +1,12 @@
 import unittest
+import os
+
+os.environ.setdefault('SLACK_TOKEN', 'test-slack-token')
+os.environ.setdefault('MESSENGER_TOKEN', 'test-page-token')
+os.environ.setdefault('MESSENGER_VERIFY_TOKEN', 'test-verify-token')
+
 import bot
 import nltk
-import os
 nltk.data.path.append(os.getcwd() + '/nltk_data')
 from textblob import TextBlob
 from webtest import TestApp
@@ -80,9 +85,20 @@ class TestSlack(unittest.TestCase):
         A simple test for the slackbot.
         """
         response = test_app.post('/slack',
-                                 {'text': 'do you work in finance'})
+                                 {'text': 'do you work in finance',
+                                  'token': app.settings.slack_token})
         self.assertEqual(response.status_int, 200)
         self.assertTrue(len(response.body) >= 1)
+
+    def test_slack_rejects_bad_token(self):
+        """
+        Slack requests must include the configured verification token.
+        """
+        response = test_app.post('/slack',
+                                 {'text': 'do you work in finance',
+                                  'token': 'bad-token'},
+                                 expect_errors=True)
+        self.assertEqual(response.status_int, 403)
 
 
 class TestFacebook(unittest.TestCase):
@@ -117,16 +133,59 @@ class TestFacebook(unittest.TestCase):
         """
         A test to send a FB message test
         """
-        r = app.messenger_reply(self.user_id, "hello this is a test")
+        calls = []
+        original_post = app.requests.post
+
+        class FakeResponse(object):
+            def __init__(self, user_id):
+                self.content = json.dumps({'recipient_id': user_id})
+
+        def fake_post(url, **kwargs):
+            calls.append((url, kwargs))
+            return FakeResponse(self.user_id)
+
+        app.requests.post = fake_post
+        try:
+            r = app.messenger_reply(self.user_id, "hello this is a test")
+        finally:
+            app.requests.post = original_post
+
         self.assertTrue(len(r) >= 1)
         self.assertTrue(json.loads(r)['recipient_id'] == self.user_id)
+        self.assertTrue('access_token=' not in calls[0][0])
+        self.assertEqual(calls[0][1]['headers']['Authorization'],
+                         'Bearer ' + app.settings.messenger_token)
+        self.assertEqual(calls[0][1]['timeout'], app.settings.request_timeout)
 
     def test_facebook_challenge(self):
         """
         Test that the webhook returns a challenge
         """
-        r = test_app.get('/messenger/webhook?hub.challenge=' + self.challenge)
+        r = test_app.get('/messenger/webhook?hub.challenge=' +
+                         self.challenge +
+                         '&hub.verify_token=' +
+                         app.settings.messenger_verify_token)
         self.assertTrue(r.body == self.challenge)
+
+    def test_facebook_challenge_rejects_bad_token(self):
+        """
+        Test that the webhook rejects invalid verification tokens
+        """
+        r = test_app.get('/messenger/webhook?hub.challenge=' +
+                         self.challenge +
+                         '&hub.verify_token=bad-token',
+                         expect_errors=True)
+        self.assertEqual(r.status_int, 403)
+
+    def test_facebook_delivery_event_is_ignored(self):
+        """
+        Test that non-message webhook events are acknowledged without replies
+        """
+        data = {'object': 'page',
+                'entry': [{'messaging': [{'sender': {'id': self.user_id},
+                                          'delivery': {'mids': ['mid-1']}}]}]}
+        r = test_app.post_json('/messenger/webhook', data)
+        self.assertEqual(r.status_int, 200)
 
 if __name__ == '__main__':
     unittest.main()

@@ -20,6 +20,10 @@ The webhook handler reads `request.json` and immediately indexes nested fields s
 
 Check that the payload is a dictionary, validate the expected object and messaging shape with `.get()` or schema checks, gracefully ignore unsupported event types, and return a deterministic 2xx/4xx response instead of indexing missing keys.
 
+## Status
+
+Fixed on 2026-06-08. Messenger webhook posts now reject non-dictionary payloads with 400 and ignore unsupported event types without indexing missing nested fields.
+
 ## Review metadata
 
 - Repository: `garethpaul/valleybot`

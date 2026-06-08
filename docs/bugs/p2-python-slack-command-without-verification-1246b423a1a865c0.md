@@ -19,6 +19,10 @@ The Slack command endpoint reads form text and returns a bot response without va
 
 Validate `X-Slack-Signature` and `X-Slack-Request-Timestamp` with the Slack signing secret before reading command text, or at minimum compare the legacy `token` form field with a configured secret using a constant-time comparison. Reject missing or invalid verification with 401 or 403 and update tests to cover unauthenticated requests.
 
+## Status
+
+Fixed on 2026-06-08. The Slack slash-command route now compares the form token with `SLACK_TOKEN` before running bot commands and rejects mismatches with 403.
+
 ## Review metadata
 
 - Repository: `garethpaul/valleybot`

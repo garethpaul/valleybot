@@ -17,6 +17,10 @@ The code builds API request URLs with `access_token` in the query string. Query 
 
 Pass tokens in an `Authorization` header or the provider SDK's credential field when supported. If the provider requires query parameters, keep the token scoped and short-lived, redact URLs before logging, and avoid storing the full tokenized URL in module-level constants.
 
+## Status
+
+Fixed on 2026-06-08. The Messenger URL no longer embeds `access_token`; replies send the token in the `Authorization` header.
+
 ## Review metadata
 
 - Repository: `garethpaul/valleybot`
