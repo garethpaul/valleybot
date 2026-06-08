@@ -27,6 +27,11 @@ def slack_handler():
     """
     Handler for slack
     """
+    token = request.forms.get('token')
+    if not hmac.compare_digest(str(token or ''), str(settings.slack_token)):
+        response.status = 403
+        return "Invalid Slack verification token"
+
     command_text = request.forms.get('text')
     return bot.respond(command_text)
 
