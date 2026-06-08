@@ -39,7 +39,6 @@ Canonical security policy and reporting:
 
 - [`SECURITY.md`](SECURITY.md)
 
-
 Bots can produce harmful or inappropriate responses and can expose channel
 tokens. Changes should preserve filtering, avoid logging private messages by
 default, and keep deployment credentials out of source control.
