@@ -1,99 +1,81 @@
 # valleybot
 
-<!-- README-OVERVIEW-IMAGE -->
-![Project overview](docs/readme-overview.svg)
+## Overview
 
-[![Build Status](https://travis-ci.org/garethpaul/valleybot.svg?branch=master)](https://travis-ci.org/garethpaul/valleybot)
-[![Code Climate](https://codeclimate.com/github/garethpaul/valleybot/badges/gpa.svg)](https://codeclimate.com/github/garethpaul/valleybot)
+`garethpaul/valleybot` is a Python web API or service project. A chatbot for FB, Slack, Web and more that responds as a "typical" character from Silicon Valley.
 
-<img src="screenshots/title.png" width="350" style="display:inline"/>
-<img src="screenshots/logo.png" width="50" style="display:inline"/>
+This README is based on the checked-in source, manifests, scripts, and repository metadata on the `master` branch. The project language mix found during review was: Python (4).
 
+## Repository Contents
 
-A chatbot based on valley stereotypes.
+- `README.md` - project overview and local usage notes
+- `requirements.txt` - Python dependency or packaging metadata
+- `app.json`
+- `app.py`
+- `docs` - source or example code
+- `nltk_data` - source or example code
+- `Procfile`
+- `SECURITY.md` - security reporting and disclosure guidance
+- `VISION.md` - project direction and maintenance guardrails
 
-#### Integrations
+Additional scan context:
 
-Here are some popular chatbot integrations.
+- Source directories: docs, nltk_data
+- Dependency and build manifests: Procfile, app.json, requirements.txt
+- Entry points or build surfaces: app.py
+- Test-looking files: bot_tests.py, nltk_data/corpora/conll2000/test.txt
 
-**Facebook**
+## Getting Started
 
-<img src="screenshots/screenshot04.png" width="240" style="width:240px; margin-top:15px" />
+### Prerequisites
 
-**Slack**
+- Git
+- Python matching the era of the project
 
-<img src="screenshots/screenshot03.png" width="500" style="width:500px; border-radius:4px; margin-top:15px" />
+### Setup
 
-**Web**
-
-<img src="screenshots/screenshot01.png" width="500" style="width:500px; border-radius:4px" />
-
-**Terminal**
-
-<img src="screenshots/screenshot02.png" width="500" style="width:500px; border-radius:4px; margin-top:15px" />
-
-## Settings
-
-Currently we have chatbot integrations for Facebook, Slack, Web and Local Access. The settings file contains more information on settings for these bot channels.
-
-
-## How to get started ?
-
-#####  1.  Initially clone the repo.
-
-```
+```bash
 git clone https://github.com/garethpaul/valleybot.git
+cd valleybot
+python -m pip install -r requirements.txt
 ```
 
-#####  2.  Get the requirements for the project
+The setup commands above are derived from repository files. Legacy mobile, Python, or JavaScript samples may require older SDKs or package versions than a modern workstation uses by default.
 
-```
-pip install -r requirements.txt
-```
+## Running or Using the Project
 
-#####  3. (option 1)  Run the server
+- Run `python app.py` after installing Python dependencies.
 
-```
-python ./app.py {port}
-```
+## Testing and Verification
 
-#####  3. (option 2)  Python
+- `python -m pytest` or the test runner used by the files above
 
- ```
-import bot
-bot.respond("Hello there valley bot what's going on?")
- ```
+When the required SDK or runtime is unavailable, use static checks and source review first, then verify on a machine that has the matching platform toolchain.
 
-## Running Externally
+## Configuration and Secrets
 
-### AWS Lambda
+- No required secret or credential file was identified in the repository scan. If you add integrations later, keep secrets out of git.
 
-###### 1. Run through the install process above.
-###### 2. Zip up the contents of this project.
+## Security and Privacy Notes
 
-```
-zip -rf ~/ValleyBot.zip *
-```
+- Review changes touching authentication or token handling; examples from the scan include nltk_data/corpora/movie_reviews/neg/cv000_29416.txt, nltk_data/corpora/movie_reviews/neg/cv067_21192.txt, nltk_data/corpora/movie_reviews/neg/cv074_7188.txt, nltk_data/corpora/movie_reviews/neg/cv144_5010.txt, and 3 more.
+- Review changes touching network requests, sockets, or service endpoints; examples from the scan include app.json, app.py, docs/bugs/p2-python-http-call-without-timeout-a07c6a4bb0ee865f.md, nltk_data/corpora/conll2000/test.txt, and 5 more.
+- Review changes touching file, media, JSON, XML, CSV, OCR, or data parsing; examples from the scan include app.json, app.py, bot.py, bot_tests.py, and 6 more.
+- Review changes touching database, model, or persistence code; examples from the scan include nltk_data/corpora/conll2000/test.txt, nltk_data/corpora/movie_reviews/neg/cv157_29302.txt, nltk_data/corpora/movie_reviews/neg/cv163_10110.txt.
+- Review changes touching infrastructure, proxy, cloud, or deployment configuration; examples from the scan include bot_tests.py.
 
-###### 3. Upload the zip to S3
-###### 4. Input your S3 url inside Lambda
-###### 4. Point your lambda function to run bot.respond_json
-###### 5. You will then get a API URL from Lambda to run the bot.
+## Maintenance Notes
 
+- See `SECURITY.md` for vulnerability reporting and safe research guidance.
+- See `VISION.md` for project direction and contribution guardrails.
 
-### Heroku
+## Contributing
 
-###### 1. Create a Heroku Instance
+Keep changes small and tied to the project that is already present in this repository. For code changes, document the toolchain used, avoid committing generated dependency directories or local configuration, and update this README when setup or verification steps change.
 
-```
-heroku create
+## Existing Project Notes
 
-```
+Prior README summary:
 
+> valleybot <!-- README-OVERVIEW-IMAGE --> [![Build Status](https://travis-ci.org/garethpaul/valleybot.svg?branch=master)](https://travis-ci.org/garethpaul/valleybot) [![Code Climate](https://codeclimate.com/github/garethpaul/valleybot/badges/gpa.svg)](https://codeclimate.com/github/garethpaul/valleybot) A chatbot based on valley stereotypes. Integrations Here are some popular chatbot integrations.
 
-###### 2. Push to Heroku
-
-```
-
-git push heroku master
-```
