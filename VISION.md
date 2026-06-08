@@ -39,7 +39,7 @@ Bots can produce harmful or inappropriate responses and can expose channel
 tokens. Changes should preserve filtering, avoid logging private messages by
 default, and keep deployment credentials out of source control.
 
-## What We Will Not Merge For Now
+## What We Will Not Merge (For Now)
 
 - Checked-in bot tokens or webhook secrets
 - Moderation bypasses
