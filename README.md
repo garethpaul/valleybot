@@ -1,5 +1,8 @@
 # valleybot
 
+<!-- README-OVERVIEW-IMAGE -->
+![Project overview](docs/readme-overview.svg)
+
 ## Overview
 
 `garethpaul/valleybot` is a Python web API or service project. A chatbot for FB, Slack, Web and more that responds as a "typical" character from Silicon Valley.
@@ -78,4 +81,3 @@ Keep changes small and tied to the project that is already present in this repos
 Prior README summary:
 
 > valleybot <!-- README-OVERVIEW-IMAGE --> [![Build Status](https://travis-ci.org/garethpaul/valleybot.svg?branch=master)](https://travis-ci.org/garethpaul/valleybot) [![Code Climate](https://codeclimate.com/github/garethpaul/valleybot/badges/gpa.svg)](https://codeclimate.com/github/garethpaul/valleybot) A chatbot based on valley stereotypes. Integrations Here are some popular chatbot integrations.
-
