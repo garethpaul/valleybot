@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
+import os
 from sys import argv
 from bottle import Bottle, template, request, response, debug
 import bot
@@ -7,7 +8,14 @@ import json
 import requests
 import settings
 
-debug(True)
+REQUEST_TIMEOUT = 10
+
+
+def env_flag(name):
+    return os.environ.get(name, '').lower() in ('1', 'true', 'yes', 'on')
+
+
+debug(env_flag('BOTTLE_DEBUG'))
 
 app = Bottle()
 
@@ -58,7 +66,9 @@ def messenger_reply(user_id, msg):
         "recipient": {"id": user_id},
         "message": {"text": bot.respond(msg)}
     }
-    resp = requests.post(settings.messenger_url, json=data)
+    resp = requests.post(settings.messenger_url, json=data,
+                         timeout=REQUEST_TIMEOUT)
+    resp.raise_for_status()
     return resp.content
 
 
