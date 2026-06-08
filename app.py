@@ -36,6 +36,11 @@ def messenger_webhook():
     """
     A webhook to return a challenge
     """
+    verify_token = request.query.get("hub.verify_token")
+    if verify_token != settings.messenger_verify_token:
+        response.status = 403
+        return "invalid verification token"
+
     challenge = request.query.get("hub.challenge")
     return challenge
 
