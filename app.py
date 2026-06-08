@@ -1,5 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
+import hmac
+import os
 from sys import argv
 from bottle import Bottle, template, request, response, debug
 import bot
@@ -7,7 +9,14 @@ import json
 import requests
 import settings
 
-debug(True)
+REQUEST_TIMEOUT = 10
+
+
+def env_flag(name):
+    return os.environ.get(name, '').lower() in ('1', 'true', 'yes', 'on')
+
+
+debug(env_flag('BOTTLE_DEBUG'))
 
 app = Bottle()
 
@@ -28,6 +37,12 @@ def messenger_webhook():
     """
     A webhook to return a challenge
     """
+    verify_token = request.query.get("hub.verify_token")
+    if not hmac.compare_digest(str(verify_token or ''),
+                               str(settings.messenger_verify_token)):
+        response.status = 403
+        return "Invalid Request or Verification Token"
+
     challenge = request.query.get("hub.challenge")
     return challenge
 
@@ -38,16 +53,31 @@ def messenger_post():
     Handler for webhook (currently for postback and messages)
     """
     data = request.json
-    # parse the sender and the message from json
-    msg_data = data['entry'][0]['messaging'][0]
-    sender = msg_data['sender']['id']
-    message = msg_data['message']['text']
-    # send message to get bot
-    if not data['debug']:
-        messenger_reply(sender, str(message))
+    if not isinstance(data, dict):
+        return "ignored"
+
+    if not data.get('debug'):
+        for sender, message in messenger_messages(data):
+            messenger_reply(sender, str(message))
 
     # must send back response quickly
     return "ok"
+
+
+def messenger_messages(data):
+    if data.get('object') != 'page':
+        return
+
+    for entry in data.get('entry') or []:
+        if not isinstance(entry, dict):
+            continue
+        for msg_data in entry.get('messaging') or []:
+            if not isinstance(msg_data, dict):
+                continue
+            sender = (msg_data.get('sender') or {}).get('id')
+            message = (msg_data.get('message') or {}).get('text')
+            if sender and message:
+                yield sender, message
 
 
 def messenger_reply(user_id, msg):
@@ -58,7 +88,11 @@ def messenger_reply(user_id, msg):
         "recipient": {"id": user_id},
         "message": {"text": bot.respond(msg)}
     }
-    resp = requests.post(settings.messenger_url, json=data)
+    resp = requests.post(settings.messenger_url,
+                         params=settings.messenger_params(),
+                         json=data,
+                         timeout=REQUEST_TIMEOUT)
+    resp.raise_for_status()
     return resp.content
 
 
