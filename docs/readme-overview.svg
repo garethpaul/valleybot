@@ -31,7 +31,7 @@
   <text x="834" y="370" font-size="19" fill="#1f2937">Integrations: None detected</text>
   <text x="834" y="466" font-size="19" fill="#1f2937">Sensitive surfaces:</text>
 <text x="834" y="490" font-size="19" fill="#1f2937">authentication, database,</text>
-<text x="834" y="514" font-size="19" fill="#1f2937">file_parsing, infrastructure,</text>
+<text x="834" y="514" font-size="19" fill="#1f2937">external_api, file_parsing,</text>
 
   <path d="M392 424h50" stroke="#94a3b8" stroke-width="4" stroke-linecap="round"/>
   <path d="M430 412l18 12-18 12z" fill="#94a3b8"/>
