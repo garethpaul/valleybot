@@ -45,3 +45,6 @@ default, and keep deployment credentials out of source control.
 - Moderation bypasses
 - Private conversation logs
 - New stereotype content without review context
+
+This list is a roadmap guardrail, not a permanent rule.
+Strong user demand and strong technical rationale can change it.
