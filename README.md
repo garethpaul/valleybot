@@ -1,3 +1,8 @@
+# valleybot
+
+<!-- README-OVERVIEW-IMAGE -->
+![Project overview](docs/readme-overview.svg)
+
 [![Build Status](https://travis-ci.org/garethpaul/valleybot.svg?branch=master)](https://travis-ci.org/garethpaul/valleybot)
 [![Code Climate](https://codeclimate.com/github/garethpaul/valleybot/badges/gpa.svg)](https://codeclimate.com/github/garethpaul/valleybot)
 
