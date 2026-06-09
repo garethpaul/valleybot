@@ -7,7 +7,10 @@ from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[1]
-PLAN_PATH = ROOT / "docs" / "plans" / "2026-06-08-valleybot-webhook-hardening.md"
+WEBHOOK_PLAN_PATH = ROOT / "docs" / "plans" / "2026-06-08-valleybot-webhook-hardening.md"
+STANDALONE_SLACK_PLAN_PATH = (
+    ROOT / "docs" / "plans" / "2026-06-08-valleybot-standalone-slack-token.md"
+)
 
 
 class FakeBottle:
@@ -54,7 +57,13 @@ def install_stubs():
     bottle.debug = lambda _enabled: None
 
     bot = types.ModuleType("bot")
-    bot.respond = lambda message: "bot: {0}".format(message)
+    bot.calls = []
+
+    def respond(message):
+        bot.calls.append(message)
+        return "bot: {0}".format(message)
+
+    bot.respond = respond
 
     settings = types.ModuleType("settings")
     settings.slack_token = "slack-secret"
@@ -78,6 +87,14 @@ def load_app():
     return module, request, response, requests
 
 
+def load_slack_module():
+    install_stubs()
+    spec = importlib.util.spec_from_file_location("valleybot_slack", str(ROOT / "slack.py"))
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module, sys.modules["bot"]
+
+
 def assert_equal(actual, expected, label):
     if actual != expected:
         raise AssertionError("{0}: expected {1!r}, got {2!r}".format(label, expected, actual))
@@ -88,11 +105,16 @@ def assert_true(condition, label):
         raise AssertionError(label)
 
 
-def test_completed_plan_is_in_docs_plans():
-    assert_true(PLAN_PATH.is_file(), "webhook hardening plan must live under docs/plans")
-    plan_text = PLAN_PATH.read_text()
-    assert_true("status: completed" in plan_text.lower(), "webhook hardening plan must be completed")
-    assert_true("make check" in plan_text, "webhook hardening plan must document make check verification")
+def assert_completed_plan(path, label):
+    assert_true(path.is_file(), "{0} plan must live under docs/plans".format(label))
+    plan_text = path.read_text()
+    assert_true("status: completed" in plan_text.lower(), "{0} plan must be completed".format(label))
+    assert_true("make check" in plan_text, "{0} plan must document make check verification".format(label))
+
+
+def test_completed_plans_are_in_docs_plans():
+    assert_completed_plan(WEBHOOK_PLAN_PATH, "webhook hardening")
+    assert_completed_plan(STANDALONE_SLACK_PLAN_PATH, "standalone Slack token")
 
 
 def test_messenger_verification_requires_matching_token():
@@ -192,9 +214,36 @@ def test_slack_command_accepts_matching_token():
     assert_equal(response.status, 200, "valid Slack token status")
 
 
+def test_standalone_slack_handler_requires_matching_token():
+    slack, bot = load_slack_module()
+
+    body = slack.slack_handler({"text": "do you work in finance", "token": "wrong"})
+
+    assert_equal(body, "forbidden", "standalone invalid Slack token response")
+    assert_equal(bot.calls, [], "standalone invalid Slack token must not call bot")
+
+
+def test_standalone_slack_handler_accepts_matching_token():
+    slack, bot = load_slack_module()
+
+    body = slack.slack_handler({"text": "do you work in finance", "token": "slack-secret"})
+
+    assert_equal(body, "bot: do you work in finance", "standalone valid Slack token response")
+    assert_equal(bot.calls, ["do you work in finance"], "standalone valid Slack token bot call")
+
+
+def test_standalone_slack_handler_rejects_blank_text():
+    slack, bot = load_slack_module()
+
+    body = slack.slack_handler({"text": "   ", "token": "slack-secret"})
+
+    assert_equal(body, "missing text", "standalone blank Slack text response")
+    assert_equal(bot.calls, [], "standalone blank Slack text must not call bot")
+
+
 def main():
     tests = [
-        test_completed_plan_is_in_docs_plans,
+        test_completed_plans_are_in_docs_plans,
         test_messenger_verification_requires_matching_token,
         test_messenger_verification_accepts_matching_token,
         test_messenger_post_ignores_non_message_events,
@@ -202,6 +251,9 @@ def main():
         test_messenger_reply_uses_header_auth_and_timeout,
         test_slack_command_requires_matching_token,
         test_slack_command_accepts_matching_token,
+        test_standalone_slack_handler_requires_matching_token,
+        test_standalone_slack_handler_accepts_matching_token,
+        test_standalone_slack_handler_rejects_blank_text,
     ]
     for test in tests:
         test()

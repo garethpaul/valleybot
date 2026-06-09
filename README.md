@@ -81,6 +81,8 @@ When the required SDK or runtime is unavailable, use static checks and source re
 - See `VISION.md` for project direction and contribution guardrails.
 - See `docs/plans/2026-06-08-valleybot-webhook-hardening.md` for the current
   webhook hardening baseline.
+- See `docs/plans/2026-06-08-valleybot-standalone-slack-token.md` for the
+  standalone Slack handler token contract.
 
 ## Contributing
 
