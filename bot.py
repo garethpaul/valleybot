@@ -12,7 +12,7 @@ from textblob import TextBlob
 
 logging.basicConfig()
 logger = logging.getLogger()
-logger.setLevel(logging.DEBUG)
+logger.setLevel(logging.WARNING)
 
 
 def check_for_greeting(sentence):
@@ -61,7 +61,7 @@ def chatback(sentence):
     """
     Main program loop: select a response for the input sentence and return it
     """
-    logger.info("Chatback: respond to %s", sentence)
+    logger.debug("Chatback: received message")
     resp = respond(sentence)
     return resp
 
@@ -105,7 +105,7 @@ def find_noun(sent):
                 noun = w
                 break
     if noun:
-        logger.info("Found noun: %s", noun)
+        logger.debug("Found noun candidate")
 
     return noun
 
@@ -231,7 +231,7 @@ def respond(sentence):
     if not resp:
         resp = random.choice(config.NONE_RESPONSES)
 
-    logger.info("Returning phrase '%s'", resp)
+    logger.debug("Generated response")
     # Check that we're not going to say anything obviously offensive
     filter_response(resp)
 
@@ -255,12 +255,7 @@ def find_candidate_parts_of_speech(parsed):
         noun = find_noun(sent)
         adjective = find_adjective(sent)
         verb = find_verb(sent)
-    logger.info(
-        "Pronoun=%s, noun=%s, adjective=%s, verb=%s",
-        pronoun,
-        noun,
-        adjective,
-        verb)
+    logger.debug("Candidate parts of speech extracted")
     return pronoun, noun, adjective, verb
 
 

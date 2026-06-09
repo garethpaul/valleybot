@@ -32,6 +32,9 @@ WEB_TEMPLATE_ESCAPING_PLAN_PATH = (
 MESSENGER_TEXT_PLAN_PATH = (
     ROOT / "docs" / "plans" / "2026-06-09-valleybot-messenger-text-guard.md"
 )
+BOT_LOGGING_PRIVACY_PLAN_PATH = (
+    ROOT / "docs" / "plans" / "2026-06-09-valleybot-bot-log-privacy.md"
+)
 
 
 class FakeBottle:
@@ -186,6 +189,7 @@ def test_completed_plans_are_in_docs_plans():
     assert_completed_plan(BOT_JSON_REQUEST_PLAN_PATH, "bot JSON request")
     assert_completed_plan(WEB_TEMPLATE_ESCAPING_PLAN_PATH, "web template escaping")
     assert_completed_plan(MESSENGER_TEXT_PLAN_PATH, "Messenger text")
+    assert_completed_plan(BOT_LOGGING_PRIVACY_PLAN_PATH, "bot logging privacy")
 
 
 def test_messenger_verification_requires_matching_token():
@@ -402,6 +406,34 @@ def test_web_template_escapes_chat_strings():
     )
 
 
+def test_bot_logging_avoids_private_message_text():
+    source = (ROOT / "bot.py").read_text()
+
+    assert_true(
+        "logger.setLevel(logging.WARNING)" in source,
+        "bot logging must default below raw conversation detail",
+    )
+    assert_true(
+        "logger.info(" not in source,
+        "bot logic must not log private message text at info level",
+    )
+    for phrase in (
+        "Chatback: respond to %s",
+        "Returning phrase '%s'",
+        "Found noun: %s",
+        "Pronoun=%s",
+    ):
+        assert_true(phrase not in source, "bot logs must not include {0}".format(phrase))
+    assert_true(
+        "logger.debug(\"Chatback: received message\")" in source,
+        "bot may keep generic debug traces without message contents",
+    )
+    assert_true(
+        "logger.debug(\"Generated response\")" in source,
+        "bot may keep generic response traces without response contents",
+    )
+
+
 def test_slack_command_requires_matching_token():
     app, request, response, _requests = load_app()
 
@@ -493,6 +525,7 @@ def main():
         test_web_bot_rejects_blank_chat_query,
         test_web_bot_trims_chat_before_bot_call,
         test_web_template_escapes_chat_strings,
+        test_bot_logging_avoids_private_message_text,
         test_slack_command_requires_matching_token,
         test_slack_command_accepts_matching_token,
         test_slack_command_rejects_blank_text,

@@ -2,6 +2,9 @@
 
 ## 2026-06-09
 
+- Replaced raw bot message, response, and extracted-term logs with generic
+  debug traces and defaulted bot logging to warning level.
+- Added static checker coverage for bot conversation log privacy.
 - Guarded `bot.json_request` so malformed, missing, blank, or non-text payload
   data does not crash or call response generation.
 - Added dependency-free contract coverage for the low-level bot JSON request

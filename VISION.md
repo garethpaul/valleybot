@@ -21,6 +21,8 @@ Priority:
 - Reject empty web chat queries before response generation
 - Render web chat replies as text instead of concatenated HTML
 - Reject malformed low-level bot JSON requests before response generation
+- Avoid logging raw inbound messages, generated responses, or extracted terms
+  by default
 - Keep outbound request timeout configuration bounded and non-crashing
 - Maintain the response filter and tests
 - Avoid expanding stereotype content without review
