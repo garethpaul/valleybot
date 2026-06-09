@@ -38,6 +38,9 @@ MESSENGER_TEXT_PLAN_PATH = (
 BOT_LOGGING_PRIVACY_PLAN_PATH = (
     ROOT / "docs" / "plans" / "2026-06-09-valleybot-bot-log-privacy.md"
 )
+MESSENGER_OBJECT_PLAN_PATH = (
+    ROOT / "docs" / "plans" / "2026-06-09-valleybot-messenger-object-guard.md"
+)
 
 
 class FakeBottle:
@@ -194,6 +197,7 @@ def test_completed_plans_are_in_docs_plans():
     assert_completed_plan(WEB_TEMPLATE_ESCAPING_PLAN_PATH, "web template escaping")
     assert_completed_plan(MESSENGER_TEXT_PLAN_PATH, "Messenger text")
     assert_completed_plan(BOT_LOGGING_PRIVACY_PLAN_PATH, "bot logging privacy")
+    assert_completed_plan(MESSENGER_OBJECT_PLAN_PATH, "Messenger object")
 
 
 def test_messenger_verification_requires_matching_token():
@@ -293,6 +297,27 @@ def test_messenger_post_rejects_invalid_json_shape():
 
     assert_equal(response.status, 400, "invalid json status")
     assert_true(body != "ok", "invalid json should not be acknowledged as a valid event")
+
+
+def test_messenger_post_rejects_non_page_object():
+    app, request, response, requests = load_app()
+
+    request.json = {
+        "object": "user",
+        "entry": [{
+            "messaging": [{
+                "sender": {"id": "user-1"},
+                "message": {"text": "hello from messenger"}
+            }]
+        }]
+    }
+    response.status = 200
+
+    body = app.messenger_post()
+
+    assert_equal(response.status, 400, "non-page Messenger object status")
+    assert_true(body != "ok", "non-page Messenger objects must not be acknowledged as valid")
+    assert_equal(requests.calls, [], "non-page Messenger objects must not call messenger reply")
 
 
 def test_messenger_reply_uses_header_auth_and_timeout():
@@ -543,7 +568,10 @@ def main():
         test_messenger_verification_requires_matching_token,
         test_messenger_verification_accepts_matching_token,
         test_messenger_post_ignores_non_message_events,
+        test_messenger_post_ignores_non_text_or_blank_messages,
+        test_messenger_post_trims_sender_and_message_text_before_reply,
         test_messenger_post_rejects_invalid_json_shape,
+        test_messenger_post_rejects_non_page_object,
         test_messenger_reply_uses_header_auth_and_timeout,
         test_request_timeout_accepts_positive_float_env,
         test_request_timeout_defaults_for_invalid_env,

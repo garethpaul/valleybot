@@ -17,6 +17,7 @@ Priority:
 - Preserve the `bot.respond` and integration entry points
 - Keep channel tokens and secrets in settings/environment configuration
 - Reject blank or non-text channel commands before response generation
+- Reject non-page Messenger webhook payloads before event parsing
 - Reject blank or non-text Messenger messages before response generation
 - Reject empty web chat queries before response generation
 - Render web chat replies as text instead of concatenated HTML
@@ -53,6 +54,7 @@ default, and keep deployment credentials out of source control.
 ## What We Will Not Merge (For Now)
 
 - Checked-in bot tokens or webhook secrets
+- Messenger webhook payloads that bypass page-object validation
 - Moderation bypasses
 - Private conversation logs
 - New stereotype content without review context

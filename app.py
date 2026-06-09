@@ -59,6 +59,9 @@ def messenger_post():
     if not isinstance(data, dict):
         response.status = 400
         return "invalid payload"
+    if data.get('object') != 'page':
+        response.status = 400
+        return "invalid payload"
 
     sender, message = parse_messenger_message(data)
     if not (sender and message):

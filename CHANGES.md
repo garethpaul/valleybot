@@ -2,6 +2,10 @@
 
 ## 2026-06-09
 
+- Rejected non-page Messenger webhook payloads before event parsing or reply
+  generation.
+- Added dependency-free Messenger object coverage and wired existing Messenger
+  text route checks into the checker run list.
 - Rejected non-text Slack command values in both the Bottle route and
   standalone adapter before response generation.
 - Added dependency-free Slack command coverage for malformed text values.

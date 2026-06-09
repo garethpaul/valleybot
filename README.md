@@ -55,8 +55,9 @@ The setup commands above are derived from repository files. Legacy mobile, Pytho
   route contract checks, including Slack command token validation and Slack
   command text validation, web chat text validation, web template escaping, bot
   JSON request validation, bot conversation log privacy, plus request timeout
-  parsing checks. Slack command text, Messenger webhook text, and Messenger
-  sender IDs must be textual and nonblank before response generation.
+  parsing checks. Slack command text, Messenger webhook object type, Messenger
+  webhook text, and Messenger sender IDs must be valid before response
+  generation.
 - `make check` runs `make verify` with bytecode cleanup before and after.
 - `python scripts/check_valleybot_contracts.py` runs just the webhook and token-handling contracts.
 - Completed maintenance plans live under `docs/plans` and are checked by
@@ -103,6 +104,8 @@ When the required SDK or runtime is unavailable, use static checks and source re
   URL encoding and text-only reply rendering.
 - See `docs/plans/2026-06-09-valleybot-messenger-text-guard.md` for Messenger
   sender and text validation.
+- See `docs/plans/2026-06-09-valleybot-messenger-object-guard.md` for
+  rejecting non-page Messenger webhook payloads before event parsing.
 - See `docs/plans/2026-06-09-valleybot-bot-log-privacy.md` for bot message and
   response log privacy coverage.
 
