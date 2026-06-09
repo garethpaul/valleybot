@@ -82,20 +82,23 @@
       <!-- JAVASCRIPT -->
       <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.0.0/jquery.min.js"></script>
       <script type="text/javascript">
+      function appendReply(imageUrl, text) {
+        var reply = $("<div>").addClass("reply");
+        var imageHandler = $("<div>").addClass("img-handler");
+        imageHandler.append($("<img>").attr("src", imageUrl));
+        reply.append(imageHandler);
+        reply.append($("<div>").addClass("txt-handler").text(text));
+        $(".chats").append(reply);
+      }
+
       $(".submit").click(function() {
         var chat = $(".chat" ).val();
 
-        $(".chats").append("<div class='reply'>"
-                            + "<div class='img-handler'><img src='https://garethjones-apps.s3.amazonaws.com/apps/valleybot/personLogo.png' /></div>"
-                            + "<div class='txt-handler'>" + chat + "</div>"
-                            + "</div>");
+        appendReply("https://garethjones-apps.s3.amazonaws.com/apps/valleybot/personLogo.png", chat);
 
 
-        $.get( "/bot?chat=" + chat).done(function( data ) {
-          $(".chats").append("<div class='reply'>"
-                              + "<div class='img-handler'><img src='https://garethjones-apps.s3.amazonaws.com/apps/valleybot/botLogo.png' /></div>"
-                              + "<div class='txt-handler'>" + data['data'] + "</div>"
-                              + "</div>");
+        $.get( "/bot?chat=" + encodeURIComponent(chat)).done(function( data ) {
+          appendReply("https://garethjones-apps.s3.amazonaws.com/apps/valleybot/botLogo.png", data['data']);
         });
       });
       </script>

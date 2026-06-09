@@ -26,6 +26,9 @@ REQUEST_TIMEOUT_PLAN_PATH = (
 BOT_JSON_REQUEST_PLAN_PATH = (
     ROOT / "docs" / "plans" / "2026-06-09-valleybot-json-request-guard.md"
 )
+WEB_TEMPLATE_ESCAPING_PLAN_PATH = (
+    ROOT / "docs" / "plans" / "2026-06-09-valleybot-web-template-escaping.md"
+)
 
 
 class FakeBottle:
@@ -178,6 +181,7 @@ def test_completed_plans_are_in_docs_plans():
     assert_completed_plan(WEB_BOT_CHAT_PLAN_PATH, "web bot chat")
     assert_completed_plan(REQUEST_TIMEOUT_PLAN_PATH, "request timeout")
     assert_completed_plan(BOT_JSON_REQUEST_PLAN_PATH, "bot JSON request")
+    assert_completed_plan(WEB_TEMPLATE_ESCAPING_PLAN_PATH, "web template escaping")
 
 
 def test_messenger_verification_requires_matching_token():
@@ -326,6 +330,22 @@ def test_web_bot_trims_chat_before_bot_call():
     assert_equal(json.loads(body), {"data": "bot: hello valley"}, "trimmed web bot chat response")
 
 
+def test_web_template_escapes_chat_strings():
+    template = (ROOT / "views" / "index.tpl").read_text()
+
+    assert_true("encodeURIComponent(chat)" in template, "web chat query must be URL-encoded")
+    assert_true(".text(text)" in template, "reply text must be inserted as text, not HTML")
+    assert_true(
+        "appendReply(" in template,
+        "web chat replies must share the escaped append helper",
+    )
+    assert_true(" + chat +" not in template, "user chat text must not be concatenated into HTML")
+    assert_true(
+        " + data['data'] +" not in template,
+        "bot response text must not be concatenated into HTML",
+    )
+
+
 def test_slack_command_requires_matching_token():
     app, request, response, _requests = load_app()
 
@@ -416,6 +436,7 @@ def main():
         test_web_bot_rejects_missing_chat_query,
         test_web_bot_rejects_blank_chat_query,
         test_web_bot_trims_chat_before_bot_call,
+        test_web_template_escapes_chat_strings,
         test_slack_command_requires_matching_token,
         test_slack_command_accepts_matching_token,
         test_slack_command_rejects_blank_text,

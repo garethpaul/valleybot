@@ -6,6 +6,9 @@
   data does not crash or call response generation.
 - Added dependency-free contract coverage for the low-level bot JSON request
   guard.
+- Rendered web chat user and bot replies with text-only DOM insertion and
+  URL-encoded chat queries.
+- Added dependency-free template coverage for web chat escaping.
 - Added safe `REQUEST_TIMEOUT` parsing so invalid, non-finite, or non-positive
   values fall back to five seconds instead of crashing startup.
 - Added dependency-free settings contract coverage for request timeout parsing.

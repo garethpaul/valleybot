@@ -18,6 +18,7 @@ Priority:
 - Keep channel tokens and secrets in settings/environment configuration
 - Reject empty channel commands before response generation
 - Reject empty web chat queries before response generation
+- Render web chat replies as text instead of concatenated HTML
 - Reject malformed low-level bot JSON requests before response generation
 - Keep outbound request timeout configuration bounded and non-crashing
 - Maintain the response filter and tests
