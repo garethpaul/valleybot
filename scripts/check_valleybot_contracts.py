@@ -2,6 +2,7 @@
 """Dependency-free route contract checks for the legacy Bottle app."""
 import importlib.util
 import json
+import os
 import sys
 import types
 from pathlib import Path
@@ -16,6 +17,9 @@ SLACK_COMMAND_TEXT_PLAN_PATH = (
     ROOT / "docs" / "plans" / "2026-06-08-valleybot-slack-command-text.md"
 )
 WEB_BOT_CHAT_PLAN_PATH = ROOT / "docs" / "plans" / "2026-06-09-valleybot-web-bot-chat.md"
+REQUEST_TIMEOUT_PLAN_PATH = (
+    ROOT / "docs" / "plans" / "2026-06-09-valleybot-request-timeout.md"
+)
 
 
 class FakeBottle:
@@ -100,6 +104,27 @@ def load_slack_module():
     return module, sys.modules["bot"]
 
 
+def load_settings_with_request_timeout(value):
+    original = os.environ.get("REQUEST_TIMEOUT")
+    if value is None:
+        os.environ.pop("REQUEST_TIMEOUT", None)
+    else:
+        os.environ["REQUEST_TIMEOUT"] = value
+
+    try:
+        spec = importlib.util.spec_from_file_location(
+            "valleybot_settings_test", str(ROOT / "settings.py")
+        )
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        return module.request_timeout
+    finally:
+        if original is None:
+            os.environ.pop("REQUEST_TIMEOUT", None)
+        else:
+            os.environ["REQUEST_TIMEOUT"] = original
+
+
 def assert_equal(actual, expected, label):
     if actual != expected:
         raise AssertionError("{0}: expected {1!r}, got {2!r}".format(label, expected, actual))
@@ -122,6 +147,7 @@ def test_completed_plans_are_in_docs_plans():
     assert_completed_plan(STANDALONE_SLACK_PLAN_PATH, "standalone Slack token")
     assert_completed_plan(SLACK_COMMAND_TEXT_PLAN_PATH, "Slack command text")
     assert_completed_plan(WEB_BOT_CHAT_PLAN_PATH, "web bot chat")
+    assert_completed_plan(REQUEST_TIMEOUT_PLAN_PATH, "request timeout")
 
 
 def test_messenger_verification_requires_matching_token():
@@ -195,6 +221,25 @@ def test_messenger_reply_uses_header_auth_and_timeout():
         "Bearer page-token",
         "messenger authorization header",
     )
+
+
+def test_request_timeout_accepts_positive_float_env():
+    assert_equal(
+        load_settings_with_request_timeout("2.5"),
+        2.5,
+        "positive REQUEST_TIMEOUT env",
+    )
+
+
+def test_request_timeout_defaults_for_invalid_env():
+    for value in ("not-a-number", "0", "-3", "nan", "inf"):
+        try:
+            timeout = load_settings_with_request_timeout(value)
+        except Exception as exc:
+            raise AssertionError(
+                "invalid REQUEST_TIMEOUT must not crash settings import: {0}".format(exc)
+            )
+        assert_equal(timeout, 5.0, "invalid REQUEST_TIMEOUT env {0!r}".format(value))
 
 
 def test_web_bot_rejects_missing_chat_query():
@@ -316,6 +361,8 @@ def main():
         test_messenger_post_ignores_non_message_events,
         test_messenger_post_rejects_invalid_json_shape,
         test_messenger_reply_uses_header_auth_and_timeout,
+        test_request_timeout_accepts_positive_float_env,
+        test_request_timeout_defaults_for_invalid_env,
         test_web_bot_rejects_missing_chat_query,
         test_web_bot_rejects_blank_chat_query,
         test_web_bot_trims_chat_before_bot_call,

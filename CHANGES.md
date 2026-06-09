@@ -2,6 +2,9 @@
 
 ## 2026-06-09
 
+- Added safe `REQUEST_TIMEOUT` parsing so invalid, non-finite, or non-positive
+  values fall back to five seconds instead of crashing startup.
+- Added dependency-free settings contract coverage for request timeout parsing.
 - Rejected missing and blank `/bot` chat query text before response generation
   and kept error responses JSON-shaped.
 - Added dependency-free route contracts for web bot missing, blank, and trimmed
