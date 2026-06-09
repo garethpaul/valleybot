@@ -25,6 +25,15 @@ def slack_handler():
         return "forbidden"
 
     command_text = request.forms.get('text')
+    if command_text is None:
+        response.status = 400
+        return "missing text"
+
+    command_text = command_text.strip()
+    if not command_text:
+        response.status = 400
+        return "missing text"
+
     return bot.respond(command_text)
 
 

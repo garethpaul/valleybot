@@ -11,6 +11,9 @@ WEBHOOK_PLAN_PATH = ROOT / "docs" / "plans" / "2026-06-08-valleybot-webhook-hard
 STANDALONE_SLACK_PLAN_PATH = (
     ROOT / "docs" / "plans" / "2026-06-08-valleybot-standalone-slack-token.md"
 )
+SLACK_COMMAND_TEXT_PLAN_PATH = (
+    ROOT / "docs" / "plans" / "2026-06-08-valleybot-slack-command-text.md"
+)
 
 
 class FakeBottle:
@@ -115,6 +118,7 @@ def assert_completed_plan(path, label):
 def test_completed_plans_are_in_docs_plans():
     assert_completed_plan(WEBHOOK_PLAN_PATH, "webhook hardening")
     assert_completed_plan(STANDALONE_SLACK_PLAN_PATH, "standalone Slack token")
+    assert_completed_plan(SLACK_COMMAND_TEXT_PLAN_PATH, "Slack command text")
 
 
 def test_messenger_verification_requires_matching_token():
@@ -214,6 +218,30 @@ def test_slack_command_accepts_matching_token():
     assert_equal(response.status, 200, "valid Slack token status")
 
 
+def test_slack_command_rejects_blank_text():
+    app, request, response, _requests = load_app()
+
+    request.forms = {"text": "   ", "token": "slack-secret"}
+    response.status = 200
+
+    body = app.slack_handler()
+
+    assert_equal(body, "missing text", "blank Slack text response")
+    assert_equal(response.status, 400, "blank Slack text status")
+
+
+def test_slack_command_trims_text_before_bot_call():
+    app, request, response, _requests = load_app()
+
+    request.forms = {"text": "  do you work in finance  ", "token": "slack-secret"}
+    response.status = 200
+
+    body = app.slack_handler()
+
+    assert_equal(body, "bot: do you work in finance", "trimmed Slack text response")
+    assert_equal(response.status, 200, "trimmed Slack text status")
+
+
 def test_standalone_slack_handler_requires_matching_token():
     slack, bot = load_slack_module()
 
@@ -251,6 +279,8 @@ def main():
         test_messenger_reply_uses_header_auth_and_timeout,
         test_slack_command_requires_matching_token,
         test_slack_command_accepts_matching_token,
+        test_slack_command_rejects_blank_text,
+        test_slack_command_trims_text_before_bot_call,
         test_standalone_slack_handler_requires_matching_token,
         test_standalone_slack_handler_accepts_matching_token,
         test_standalone_slack_handler_rejects_blank_text,

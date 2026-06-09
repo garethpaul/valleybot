@@ -2,6 +2,8 @@
 
 ## 2026-06-08
 
+- Rejected missing and blank Bottle Slack command text before running bot
+  response generation.
 - Required matching Slack tokens before the standalone Slack handler calls the bot.
 - Tightened docs-plan verification to require recorded `make check` evidence.
 - Added dependency-free Messenger and Slack route contract checks and a local `make verify` gate.
