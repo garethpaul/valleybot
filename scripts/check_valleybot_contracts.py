@@ -90,7 +90,9 @@ def assert_true(condition, label):
 
 def test_completed_plan_is_in_docs_plans():
     assert_true(PLAN_PATH.is_file(), "webhook hardening plan must live under docs/plans")
-    assert_true("status: completed" in PLAN_PATH.read_text(), "webhook hardening plan must be completed")
+    plan_text = PLAN_PATH.read_text()
+    assert_true("status: completed" in plan_text.lower(), "webhook hardening plan must be completed")
+    assert_true("make check" in plan_text, "webhook hardening plan must document make check verification")
 
 
 def test_messenger_verification_requires_matching_token():

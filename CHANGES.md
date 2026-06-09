@@ -2,6 +2,7 @@
 
 ## 2026-06-08
 
+- Tightened docs-plan verification to require recorded `make check` evidence.
 - Added dependency-free Messenger and Slack route contract checks and a local `make verify` gate.
 - Required Slack slash-command tokens before running bot commands.
 - Required Messenger webhook verification tokens before echoing challenges.
