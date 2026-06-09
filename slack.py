@@ -14,11 +14,8 @@ def slack_handler(event):
     if not secure_compare(token, expected_token):
         return "forbidden"
 
-    command_text = event.get('text')
+    command_text = clean_text_value(event.get('text'))
     if command_text is None:
-        return "missing text"
-    command_text = command_text.strip()
-    if not command_text:
         return "missing text"
 
     return bot.respond(command_text)
@@ -41,3 +38,19 @@ def secure_compare(left, right):
     for left_char, right_char in zip(left, right):
         result |= ord(left_char) ^ ord(right_char)
     return result == 0
+
+
+def clean_text_value(value):
+    if value is None:
+        return None
+
+    try:
+        text_types = (basestring,)
+    except NameError:
+        text_types = (str,)
+
+    if not isinstance(value, text_types):
+        return None
+
+    value = value.strip()
+    return value or None

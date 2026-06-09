@@ -41,6 +41,10 @@ Messenger webhook events should only generate bot replies when sender IDs and
 message text are textual and nonblank. Non-message, blank, or non-text events
 should be acknowledged without response generation.
 
+Slack command events should only generate bot replies after token validation
+and when command text is textual and nonblank. Missing, blank, or non-text
+command values should return the existing missing-text response.
+
 ## Dependency and Supply Chain Security
 
 Dependency updates should come from trusted package managers and should keep lockfiles in sync when lockfiles exist. Do not commit credentials, private keys, tokens, generated secrets, or machine-local configuration. If a vulnerability depends on a compromised package, typosquatting risk, insecure transitive dependency, or unsafe build step, include the package name, affected version, and the path through which it is used.

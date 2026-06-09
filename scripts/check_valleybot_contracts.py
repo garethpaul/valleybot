@@ -19,6 +19,9 @@ STANDALONE_SLACK_PLAN_PATH = (
 SLACK_COMMAND_TEXT_PLAN_PATH = (
     ROOT / "docs" / "plans" / "2026-06-08-valleybot-slack-command-text.md"
 )
+SLACK_NON_TEXT_PLAN_PATH = (
+    ROOT / "docs" / "plans" / "2026-06-09-valleybot-slack-non-text-command.md"
+)
 WEB_BOT_CHAT_PLAN_PATH = ROOT / "docs" / "plans" / "2026-06-09-valleybot-web-bot-chat.md"
 REQUEST_TIMEOUT_PLAN_PATH = (
     ROOT / "docs" / "plans" / "2026-06-09-valleybot-request-timeout.md"
@@ -184,6 +187,7 @@ def test_completed_plans_are_in_docs_plans():
     assert_completed_plan(WEBHOOK_PLAN_PATH, "webhook hardening")
     assert_completed_plan(STANDALONE_SLACK_PLAN_PATH, "standalone Slack token")
     assert_completed_plan(SLACK_COMMAND_TEXT_PLAN_PATH, "Slack command text")
+    assert_completed_plan(SLACK_NON_TEXT_PLAN_PATH, "Slack non-text command")
     assert_completed_plan(WEB_BOT_CHAT_PLAN_PATH, "web bot chat")
     assert_completed_plan(REQUEST_TIMEOUT_PLAN_PATH, "request timeout")
     assert_completed_plan(BOT_JSON_REQUEST_PLAN_PATH, "bot JSON request")
@@ -470,6 +474,20 @@ def test_slack_command_rejects_blank_text():
     assert_equal(response.status, 400, "blank Slack text status")
 
 
+def test_slack_command_rejects_non_text_values():
+    for text_value in ({"message": "hello"}, b"hello"):
+        app, request, response, _requests = load_app()
+
+        request.forms = {"text": text_value, "token": "slack-secret"}
+        response.status = 200
+
+        body = app.slack_handler()
+
+        assert_equal(body, "missing text", "non-text Slack text response")
+        assert_equal(response.status, 400, "non-text Slack text status")
+        assert_equal(sys.modules["bot"].calls, [], "non-text Slack text must not call bot")
+
+
 def test_slack_command_trims_text_before_bot_call():
     app, request, response, _requests = load_app()
 
@@ -509,6 +527,16 @@ def test_standalone_slack_handler_rejects_blank_text():
     assert_equal(bot.calls, [], "standalone blank Slack text must not call bot")
 
 
+def test_standalone_slack_handler_rejects_non_text_values():
+    for text_value in ({"message": "hello"}, b"hello"):
+        slack, bot = load_slack_module()
+
+        body = slack.slack_handler({"text": text_value, "token": "slack-secret"})
+
+        assert_equal(body, "missing text", "standalone non-text Slack text response")
+        assert_equal(bot.calls, [], "standalone non-text Slack text must not call bot")
+
+
 def main():
     tests = [
         test_completed_plans_are_in_docs_plans,
@@ -529,10 +557,12 @@ def main():
         test_slack_command_requires_matching_token,
         test_slack_command_accepts_matching_token,
         test_slack_command_rejects_blank_text,
+        test_slack_command_rejects_non_text_values,
         test_slack_command_trims_text_before_bot_call,
         test_standalone_slack_handler_requires_matching_token,
         test_standalone_slack_handler_accepts_matching_token,
         test_standalone_slack_handler_rejects_blank_text,
+        test_standalone_slack_handler_rejects_non_text_values,
     ]
     for test in tests:
         test()

@@ -2,6 +2,9 @@
 
 ## 2026-06-09
 
+- Rejected non-text Slack command values in both the Bottle route and
+  standalone adapter before response generation.
+- Added dependency-free Slack command coverage for malformed text values.
 - Replaced raw bot message, response, and extracted-term logs with generic
   debug traces and defaulted bot logging to warning level.
 - Added static checker coverage for bot conversation log privacy.
