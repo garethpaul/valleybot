@@ -53,7 +53,8 @@ The setup commands above are derived from repository files. Legacy mobile, Pytho
 
 - `make verify` runs syntax checks and dependency-free Messenger and Slack
   route contract checks, including Slack command token validation and web chat
-  text validation, plus request timeout parsing checks.
+  text validation, bot JSON request validation, plus request timeout parsing
+  checks.
 - `make check` runs `make verify` with bytecode cleanup before and after.
 - `python scripts/check_valleybot_contracts.py` runs just the webhook and token-handling contracts.
 - Completed maintenance plans live under `docs/plans` and are checked by
@@ -92,6 +93,8 @@ When the required SDK or runtime is unavailable, use static checks and source re
   query validation.
 - See `docs/plans/2026-06-09-valleybot-request-timeout.md` for request timeout
   environment parsing guard coverage.
+- See `docs/plans/2026-06-09-valleybot-json-request-guard.md` for the
+  low-level bot JSON payload guard.
 
 ## Contributing
 

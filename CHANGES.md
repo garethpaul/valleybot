@@ -2,6 +2,10 @@
 
 ## 2026-06-09
 
+- Guarded `bot.json_request` so malformed, missing, blank, or non-text payload
+  data does not crash or call response generation.
+- Added dependency-free contract coverage for the low-level bot JSON request
+  guard.
 - Added safe `REQUEST_TIMEOUT` parsing so invalid, non-finite, or non-positive
   values fall back to five seconds instead of crashing startup.
 - Added dependency-free settings contract coverage for request timeout parsing.

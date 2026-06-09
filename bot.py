@@ -39,8 +39,22 @@ def starts_with_vowel(word):
 
 
 def json_request(json_payload, context):
-    if json_payload['data']:
-        return chatback(json_payload['data'])
+    if not isinstance(json_payload, dict):
+        return None
+
+    data = json_payload.get('data')
+    if data is None:
+        return None
+
+    try:
+        data = data.strip()
+    except AttributeError:
+        return None
+
+    if not data:
+        return None
+
+    return chatback(data)
 
 
 def chatback(sentence):

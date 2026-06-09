@@ -9,6 +9,9 @@ from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[1]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+
 WEBHOOK_PLAN_PATH = ROOT / "docs" / "plans" / "2026-06-08-valleybot-webhook-hardening.md"
 STANDALONE_SLACK_PLAN_PATH = (
     ROOT / "docs" / "plans" / "2026-06-08-valleybot-standalone-slack-token.md"
@@ -19,6 +22,9 @@ SLACK_COMMAND_TEXT_PLAN_PATH = (
 WEB_BOT_CHAT_PLAN_PATH = ROOT / "docs" / "plans" / "2026-06-09-valleybot-web-bot-chat.md"
 REQUEST_TIMEOUT_PLAN_PATH = (
     ROOT / "docs" / "plans" / "2026-06-09-valleybot-request-timeout.md"
+)
+BOT_JSON_REQUEST_PLAN_PATH = (
+    ROOT / "docs" / "plans" / "2026-06-09-valleybot-json-request-guard.md"
 )
 
 
@@ -104,6 +110,29 @@ def load_slack_module():
     return module, sys.modules["bot"]
 
 
+def load_bot_module():
+    nltk = types.ModuleType("nltk")
+    nltk.data = types.SimpleNamespace(path=[])
+    textblob = types.ModuleType("textblob")
+    textblob.TextBlob = object
+    sys.modules["nltk"] = nltk
+    sys.modules["textblob"] = textblob
+    sys.modules.pop("valleybot_bot", None)
+
+    spec = importlib.util.spec_from_file_location("valleybot_bot", str(ROOT / "bot.py"))
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+
+    calls = []
+
+    def fake_chatback(message):
+        calls.append(message)
+        return "bot: {0}".format(message)
+
+    module.chatback = fake_chatback
+    return module, calls
+
+
 def load_settings_with_request_timeout(value):
     original = os.environ.get("REQUEST_TIMEOUT")
     if value is None:
@@ -148,6 +177,7 @@ def test_completed_plans_are_in_docs_plans():
     assert_completed_plan(SLACK_COMMAND_TEXT_PLAN_PATH, "Slack command text")
     assert_completed_plan(WEB_BOT_CHAT_PLAN_PATH, "web bot chat")
     assert_completed_plan(REQUEST_TIMEOUT_PLAN_PATH, "request timeout")
+    assert_completed_plan(BOT_JSON_REQUEST_PLAN_PATH, "bot JSON request")
 
 
 def test_messenger_verification_requires_matching_token():
@@ -240,6 +270,24 @@ def test_request_timeout_defaults_for_invalid_env():
                 "invalid REQUEST_TIMEOUT must not crash settings import: {0}".format(exc)
             )
         assert_equal(timeout, 5.0, "invalid REQUEST_TIMEOUT env {0!r}".format(value))
+
+
+def test_bot_json_request_rejects_invalid_or_blank_payloads():
+    bot, calls = load_bot_module()
+
+    for payload in (None, [], {}, {"data": None}, {"data": ""}, {"data": "   "}, {"data": 12}):
+        assert_equal(bot.json_request(payload, None), None, "invalid JSON request payload {0!r}".format(payload))
+
+    assert_equal(calls, [], "invalid JSON request payloads must not call chatback")
+
+
+def test_bot_json_request_trims_data_before_chatback():
+    bot, calls = load_bot_module()
+
+    body = bot.json_request({"data": "  hello valley  "}, None)
+
+    assert_equal(body, "bot: hello valley", "trimmed JSON request response")
+    assert_equal(calls, ["hello valley"], "JSON request must trim data before chatback")
 
 
 def test_web_bot_rejects_missing_chat_query():
@@ -363,6 +411,8 @@ def main():
         test_messenger_reply_uses_header_auth_and_timeout,
         test_request_timeout_accepts_positive_float_env,
         test_request_timeout_defaults_for_invalid_env,
+        test_bot_json_request_rejects_invalid_or_blank_payloads,
+        test_bot_json_request_trims_data_before_chatback,
         test_web_bot_rejects_missing_chat_query,
         test_web_bot_rejects_blank_chat_query,
         test_web_bot_trims_chat_before_bot_call,
