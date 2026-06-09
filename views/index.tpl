@@ -82,6 +82,9 @@
       <!-- JAVASCRIPT -->
       <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.0.0/jquery.min.js"></script>
       <script type="text/javascript">
+      var personLogo = "https://garethjones-apps.s3.amazonaws.com/apps/valleybot/personLogo.png";
+      var botLogo = "https://garethjones-apps.s3.amazonaws.com/apps/valleybot/botLogo.png";
+
       function appendReply(imageUrl, text) {
         var reply = $("<div>").addClass("reply");
         var imageHandler = $("<div>").addClass("img-handler");
@@ -94,11 +97,11 @@
       $(".submit").click(function() {
         var chat = $(".chat" ).val();
 
-        appendReply("https://garethjones-apps.s3.amazonaws.com/apps/valleybot/personLogo.png", chat);
+        appendReply(personLogo, chat);
 
 
         $.get( "/bot?chat=" + encodeURIComponent(chat)).done(function( data ) {
-          appendReply("https://garethjones-apps.s3.amazonaws.com/apps/valleybot/botLogo.png", data['data']);
+          appendReply(botLogo, data['data']);
         });
       });
       </script>

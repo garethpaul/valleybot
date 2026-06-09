@@ -333,13 +333,22 @@ def test_web_bot_trims_chat_before_bot_call():
 def test_web_template_escapes_chat_strings():
     template = (ROOT / "views" / "index.tpl").read_text()
 
-    assert_true("encodeURIComponent(chat)" in template, "web chat query must be URL-encoded")
-    assert_true(".text(text)" in template, "reply text must be inserted as text, not HTML")
+    assert_true(
+        "encodeURIComponent(chat)" in template,
+        "web chat query must be URL-encoded",
+    )
+    assert_true(
+        ".text(text)" in template,
+        "reply text must be inserted as text, not HTML",
+    )
     assert_true(
         "appendReply(" in template,
         "web chat replies must share the escaped append helper",
     )
-    assert_true(" + chat +" not in template, "user chat text must not be concatenated into HTML")
+    assert_true(
+        " + chat +" not in template,
+        "user chat text must not be concatenated into HTML",
+    )
     assert_true(
         " + data['data'] +" not in template,
         "bot response text must not be concatenated into HTML",
