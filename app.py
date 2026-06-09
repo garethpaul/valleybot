@@ -71,7 +71,7 @@ def messenger_post():
 
     # send message to get bot
     if not data.get('debug'):
-        messenger_reply(sender, str(message))
+        messenger_reply(sender, message)
 
     # must send back response quickly
     return "ok"
@@ -120,6 +120,11 @@ def parse_messenger_message(data):
             message = event.get('message') or {}
             sender_id = sender.get('id')
             message_text = message.get('text')
+            try:
+                sender_id = sender_id.strip()
+                message_text = message_text.strip()
+            except AttributeError:
+                continue
             if sender_id and message_text:
                 return sender_id, message_text
 

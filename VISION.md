@@ -17,6 +17,7 @@ Priority:
 - Preserve the `bot.respond` and integration entry points
 - Keep channel tokens and secrets in settings/environment configuration
 - Reject empty channel commands before response generation
+- Reject blank or non-text Messenger messages before response generation
 - Reject empty web chat queries before response generation
 - Render web chat replies as text instead of concatenated HTML
 - Reject malformed low-level bot JSON requests before response generation

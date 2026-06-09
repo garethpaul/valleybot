@@ -29,6 +29,9 @@ BOT_JSON_REQUEST_PLAN_PATH = (
 WEB_TEMPLATE_ESCAPING_PLAN_PATH = (
     ROOT / "docs" / "plans" / "2026-06-09-valleybot-web-template-escaping.md"
 )
+MESSENGER_TEXT_PLAN_PATH = (
+    ROOT / "docs" / "plans" / "2026-06-09-valleybot-messenger-text-guard.md"
+)
 
 
 class FakeBottle:
@@ -182,6 +185,7 @@ def test_completed_plans_are_in_docs_plans():
     assert_completed_plan(REQUEST_TIMEOUT_PLAN_PATH, "request timeout")
     assert_completed_plan(BOT_JSON_REQUEST_PLAN_PATH, "bot JSON request")
     assert_completed_plan(WEB_TEMPLATE_ESCAPING_PLAN_PATH, "web template escaping")
+    assert_completed_plan(MESSENGER_TEXT_PLAN_PATH, "Messenger text")
 
 
 def test_messenger_verification_requires_matching_token():
@@ -226,6 +230,49 @@ def test_messenger_post_ignores_non_message_events():
 
     assert_equal(body, "ok", "non-message event response")
     assert_equal(requests.calls, [], "non-message events must not call messenger reply")
+
+
+def test_messenger_post_ignores_non_text_or_blank_messages():
+    invalid_text_values = [None, "", " \t\n", {"text": "hello"}, ["hello"]]
+    for text_value in invalid_text_values:
+        app, request, response, requests = load_app()
+        request.json = {
+            "object": "page",
+            "entry": [{
+                "messaging": [{
+                    "sender": {"id": "user-1"},
+                    "message": {"text": text_value}
+                }]
+            }]
+        }
+        response.status = 200
+
+        body = app.messenger_post()
+
+        assert_equal(body, "ok", "invalid Messenger text event response")
+        assert_equal(requests.calls, [], "invalid Messenger text must not call messenger reply")
+
+
+def test_messenger_post_trims_sender_and_message_text_before_reply():
+    app, request, response, requests = load_app()
+    request.json = {
+        "object": "page",
+        "entry": [{
+            "messaging": [{
+                "sender": {"id": " user-1 "},
+                "message": {"text": " hello from messenger "}
+            }]
+        }]
+    }
+    response.status = 200
+
+    body = app.messenger_post()
+
+    assert_equal(body, "ok", "trimmed Messenger text event response")
+    assert_equal(len(requests.calls), 1, "trimmed Messenger text post count")
+    _url, kwargs = requests.calls[0]
+    assert_equal(kwargs["json"]["recipient"]["id"], "user-1", "trimmed Messenger sender")
+    assert_equal(kwargs["json"]["message"]["text"], "bot: hello from messenger", "trimmed Messenger text")
 
 
 def test_messenger_post_rejects_invalid_json_shape():

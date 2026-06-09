@@ -9,6 +9,8 @@
 - Rendered web chat user and bot replies with text-only DOM insertion and
   URL-encoded chat queries.
 - Added dependency-free template coverage for web chat escaping.
+- Guarded Messenger webhook text and sender IDs so non-text or blank events are
+  acknowledged without response generation.
 - Added safe `REQUEST_TIMEOUT` parsing so invalid, non-finite, or non-positive
   values fall back to five seconds instead of crashing startup.
 - Added dependency-free settings contract coverage for request timeout parsing.
