@@ -17,13 +17,13 @@ Priority:
 - Preserve the `bot.respond` and integration entry points
 - Keep channel tokens and secrets in settings/environment configuration
 - Reject empty channel commands before response generation
+- Reject empty web chat queries before response generation
 - Maintain the response filter and tests
 - Avoid expanding stereotype content without review
 
 Next priorities:
 
 - Add clearer moderation and content-review guidance
-- Add missing-query handling for the web `/bot` route
 - Document Python version and NLTK/TextBlob setup
 - Separate deployment packaging from bot behavior changes
 

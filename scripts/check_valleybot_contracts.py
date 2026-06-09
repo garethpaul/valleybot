@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Dependency-free route contract checks for the legacy Bottle app."""
 import importlib.util
+import json
 import sys
 import types
 from pathlib import Path
@@ -14,6 +15,7 @@ STANDALONE_SLACK_PLAN_PATH = (
 SLACK_COMMAND_TEXT_PLAN_PATH = (
     ROOT / "docs" / "plans" / "2026-06-08-valleybot-slack-command-text.md"
 )
+WEB_BOT_CHAT_PLAN_PATH = ROOT / "docs" / "plans" / "2026-06-09-valleybot-web-bot-chat.md"
 
 
 class FakeBottle:
@@ -119,6 +121,7 @@ def test_completed_plans_are_in_docs_plans():
     assert_completed_plan(WEBHOOK_PLAN_PATH, "webhook hardening")
     assert_completed_plan(STANDALONE_SLACK_PLAN_PATH, "standalone Slack token")
     assert_completed_plan(SLACK_COMMAND_TEXT_PLAN_PATH, "Slack command text")
+    assert_completed_plan(WEB_BOT_CHAT_PLAN_PATH, "web bot chat")
 
 
 def test_messenger_verification_requires_matching_token():
@@ -192,6 +195,42 @@ def test_messenger_reply_uses_header_auth_and_timeout():
         "Bearer page-token",
         "messenger authorization header",
     )
+
+
+def test_web_bot_rejects_missing_chat_query():
+    app, request, response, _requests = load_app()
+
+    request.query = {}
+    response.status = 200
+
+    body = app.chat()
+
+    assert_equal(response.status, 400, "missing web bot chat status")
+    assert_equal(json.loads(body), {"error": "missing chat"}, "missing web bot chat response")
+
+
+def test_web_bot_rejects_blank_chat_query():
+    app, request, response, _requests = load_app()
+
+    request.query = {"chat": "   "}
+    response.status = 200
+
+    body = app.chat()
+
+    assert_equal(response.status, 400, "blank web bot chat status")
+    assert_equal(json.loads(body), {"error": "missing chat"}, "blank web bot chat response")
+
+
+def test_web_bot_trims_chat_before_bot_call():
+    app, request, response, _requests = load_app()
+
+    request.query = {"chat": "  hello valley  "}
+    response.status = 200
+
+    body = app.chat()
+
+    assert_equal(response.status, 200, "trimmed web bot chat status")
+    assert_equal(json.loads(body), {"data": "bot: hello valley"}, "trimmed web bot chat response")
 
 
 def test_slack_command_requires_matching_token():
@@ -277,6 +316,9 @@ def main():
         test_messenger_post_ignores_non_message_events,
         test_messenger_post_rejects_invalid_json_shape,
         test_messenger_reply_uses_header_auth_and_timeout,
+        test_web_bot_rejects_missing_chat_query,
+        test_web_bot_rejects_blank_chat_query,
+        test_web_bot_trims_chat_before_bot_call,
         test_slack_command_requires_matching_token,
         test_slack_command_accepts_matching_token,
         test_slack_command_rejects_blank_text,

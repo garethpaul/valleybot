@@ -150,8 +150,17 @@ def chat():
     Chat handler for returning a bot response
     Returns json response
     """
-    chat = request.query['chat']
     response.content_type = 'application/json'
+    chat = request.query.get('chat')
+    if chat is None:
+        response.status = 400
+        return json.dumps({"error": "missing chat"})
+
+    chat = chat.strip()
+    if not chat:
+        response.status = 400
+        return json.dumps({"error": "missing chat"})
+
     return json.dumps({"data": bot.respond(chat)})
 
 

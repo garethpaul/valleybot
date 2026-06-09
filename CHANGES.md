@@ -1,5 +1,12 @@
 # Changes
 
+## 2026-06-09
+
+- Rejected missing and blank `/bot` chat query text before response generation
+  and kept error responses JSON-shaped.
+- Added dependency-free route contracts for web bot missing, blank, and trimmed
+  chat query handling.
+
 ## 2026-06-08
 
 - Rejected missing and blank Bottle Slack command text before running bot
