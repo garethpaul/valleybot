@@ -232,9 +232,16 @@ def respond(sentence):
         resp = random.choice(config.NONE_RESPONSES)
 
     logger.debug("Generated response")
-    # Check that we're not going to say anything obviously offensive
-    filter_response(resp)
+    return safe_response(resp)
 
+
+def safe_response(resp):
+    """Return a reviewed fallback when generated text fails moderation."""
+    try:
+        filter_response(resp)
+    except UnacceptableUtteranceException:
+        logger.warning("Generated response rejected by content filter")
+        return random.choice(config.NONE_RESPONSES)
     return resp
 
 

@@ -2,6 +2,8 @@
 
 ## 2026-06-10
 
+- Contained generated-response filter rejections and returned a reviewed generic
+  fallback instead of failing web, Slack, or Messenger requests.
 - Limited unauthenticated Messenger webhook bodies to 1 MiB and reject both
   oversized declared and streamed payloads with HTTP 413 before parsing.
 - Added dependency-free and Bottle/WebTest regressions, rooted Make execution,

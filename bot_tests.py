@@ -64,6 +64,22 @@ class BotTest(unittest.TestCase):
         r = bot.construct_response(pronoun, noun, verb)
         self.assertTrue("car" in r)
 
+    def testFilteredResponseUsesReviewedFallback(self):
+        blocked_response = next(iter(bot.config.FILTER_WORDS))
+        original_choice = bot.random.choice
+        bot.random.choice = lambda responses: responses[0]
+        try:
+            response = bot.safe_response(blocked_response)
+        finally:
+            bot.random.choice = original_choice
+
+        self.assertEqual(response, bot.config.NONE_RESPONSES[0])
+
+    def testAcceptableResponsePassesThroughFilter(self):
+        response = "reviewed response"
+
+        self.assertEqual(bot.safe_response(response), response)
+
 
 class TestBottleApp(unittest.TestCase):
 

@@ -31,6 +31,7 @@ Priority:
   by default
 - Keep outbound request timeout configuration bounded and non-crashing
 - Maintain the response filter and tests
+- Return reviewed fallback text when a generated response fails moderation
 - Avoid expanding stereotype content without review
 
 Next priorities:

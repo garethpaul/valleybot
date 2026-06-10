@@ -60,7 +60,8 @@ The setup commands above are derived from repository files. Legacy mobile, Pytho
   parsing checks. Slack command text, Messenger webhook object type, Messenger
   webhook text, and Messenger sender IDs must be valid before response
   generation. Messenger POST bodies larger than 1 MiB are rejected with HTTP
-  413 before signature verification or JSON parsing.
+  413 before signature verification or JSON parsing. Generated responses that
+  fail moderation use a reviewed generic fallback instead of failing a request.
 - `make check` runs `make verify` with bytecode cleanup before and after.
 - `make prepare-corpora` installs the current TextBlob tokenizer and tagger
   data into the existing project-local `nltk_data` directory. Heroku runs the
@@ -124,6 +125,8 @@ When the required SDK or runtime is unavailable, use static checks and source re
   dependency, corpus, runtime-test, webhook-signature, and CI modernization.
 - See `docs/plans/2026-06-10-messenger-webhook-size-limit.md` for the completed
   unauthenticated request-body limit.
+- See `docs/plans/2026-06-10-filtered-response-fallback.md` for the completed
+  moderation fallback and runtime regression coverage.
 
 ## Contributing
 

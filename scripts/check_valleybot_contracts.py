@@ -50,6 +50,9 @@ RUNTIME_PLAN_PATH = (
 WEBHOOK_SIZE_PLAN_PATH = (
     ROOT / "docs" / "plans" / "2026-06-10-messenger-webhook-size-limit.md"
 )
+FILTER_FALLBACK_PLAN_PATH = (
+    ROOT / "docs" / "plans" / "2026-06-10-filtered-response-fallback.md"
+)
 
 
 class FakeBottle:
@@ -216,6 +219,7 @@ def test_completed_plans_are_in_docs_plans():
     assert_completed_plan(MESSENGER_OBJECT_PLAN_PATH, "Messenger object")
     assert_completed_plan(RUNTIME_PLAN_PATH, "Python 3 runtime modernization")
     assert_completed_plan(WEBHOOK_SIZE_PLAN_PATH, "Messenger webhook size limit")
+    assert_completed_plan(FILTER_FALLBACK_PLAN_PATH, "filtered response fallback")
 
 
 def test_runtime_and_ci_contracts():
@@ -549,6 +553,18 @@ def test_bot_logging_avoids_private_message_text():
     )
 
 
+def test_filtered_responses_use_reviewed_fallback():
+    source = (ROOT / "bot.py").read_text()
+    runtime_tests = (ROOT / "bot_tests.py").read_text()
+
+    assert_true("return safe_response(resp)" in source, "respond must pass generated text through the safe response boundary")
+    assert_true("except UnacceptableUtteranceException:" in source, "content filter rejections must be contained")
+    assert_true("return random.choice(config.NONE_RESPONSES)" in source, "content filter rejections must use reviewed fallback responses")
+    assert_true("Generated response rejected by content filter" in source, "content filter rejections must keep a content-free diagnostic")
+    assert_true("testFilteredResponseUsesReviewedFallback" in runtime_tests, "runtime tests must cover filtered response fallback")
+    assert_true("testAcceptableResponsePassesThroughFilter" in runtime_tests, "runtime tests must cover accepted response passthrough")
+
+
 def test_slack_command_requires_matching_token():
     app, request, response, _requests = load_app()
 
@@ -671,6 +687,7 @@ def main():
         test_web_bot_trims_chat_before_bot_call,
         test_web_template_escapes_chat_strings,
         test_bot_logging_avoids_private_message_text,
+        test_filtered_responses_use_reviewed_fallback,
         test_slack_command_requires_matching_token,
         test_slack_command_accepts_matching_token,
         test_slack_command_rejects_blank_text,
