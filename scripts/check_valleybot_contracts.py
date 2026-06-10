@@ -47,6 +47,9 @@ MESSENGER_OBJECT_PLAN_PATH = (
 RUNTIME_PLAN_PATH = (
     ROOT / "docs" / "plans" / "2026-06-10-python3-runtime-modernization.md"
 )
+WEBHOOK_SIZE_PLAN_PATH = (
+    ROOT / "docs" / "plans" / "2026-06-10-messenger-webhook-size-limit.md"
+)
 
 
 class FakeBottle:
@@ -63,6 +66,7 @@ class MutableRequest:
         self.query = {}
         self.json = None
         self.body = io.BytesIO(b"")
+        self.content_length = 0
         self.headers = {
             "X-Hub-Signature-256": "sha256=" + hmac.new(
                 b"app-secret", b"", hashlib.sha256).hexdigest()
@@ -211,6 +215,7 @@ def test_completed_plans_are_in_docs_plans():
     assert_completed_plan(BOT_LOGGING_PRIVACY_PLAN_PATH, "bot logging privacy")
     assert_completed_plan(MESSENGER_OBJECT_PLAN_PATH, "Messenger object")
     assert_completed_plan(RUNTIME_PLAN_PATH, "Python 3 runtime modernization")
+    assert_completed_plan(WEBHOOK_SIZE_PLAN_PATH, "Messenger webhook size limit")
 
 
 def test_runtime_and_ci_contracts():
@@ -229,6 +234,9 @@ def test_runtime_and_ci_contracts():
     workflow = (ROOT / ".github/workflows/check.yml").read_text(encoding="utf-8")
     for contract in (
             "permissions:\n  contents: read",
+            "concurrency:",
+            "cancel-in-progress: true",
+            "runs-on: ubuntu-24.04",
             "timeout-minutes: 15",
             'python-version: ["3.10", "3.12", "3.14"]',
             "actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10",
@@ -237,10 +245,45 @@ def test_runtime_and_ci_contracts():
             "make check PYTHON=python"):
         assert_true(contract in workflow, "missing CI contract {0}".format(contract))
     assert_true("@v" not in workflow, "CI actions must use immutable commits")
+    assert_true("ubuntu-latest" not in workflow, "CI must not use a floating Ubuntu runner")
+    assert_true("# v6.0.3" in workflow, "checkout pin annotation must identify the exact release")
+    assert_true("# v6.2.0" in workflow, "setup-python pin annotation must identify the exact release")
+
+    makefile = (ROOT / "Makefile").read_text(encoding="utf-8")
+    assert_true("ROOT := $(abspath $(dir $(lastword $(MAKEFILE_LIST))))" in makefile, "Makefile must resolve the repository root")
+    assert_true('find "$(ROOT)"' in makefile, "Makefile cleanup must stay inside the repository")
+    assert_true('"$(ROOT)/scripts/check_valleybot_contracts.py"' in makefile, "Makefile must use the rooted contract path")
 
     app_source = (ROOT / "app.py").read_text(encoding="utf-8")
+    runtime_tests = (ROOT / "bot_tests.py").read_text(encoding="utf-8")
     assert_true("debug(True)" not in app_source, "Bottle debug mode must not be enabled by default")
     assert_true("verify_messenger_signature" in app_source, "Messenger POST signatures must remain required")
+    assert_true("MAX_MESSENGER_WEBHOOK_BYTES = 1024 * 1024" in app_source, "Messenger webhook size limit must remain 1 MiB")
+    assert_true("request.body.read(MAX_MESSENGER_WEBHOOK_BYTES + 1)" in app_source, "Messenger body reads must be bounded")
+    assert_true("test_facebook_webhook_rejects_oversized_payload" in runtime_tests, "Bottle/WebTest must cover oversized Messenger payloads")
+
+
+def test_messenger_post_rejects_oversized_declared_body():
+    app, request, response, requests = load_app()
+    request.content_length = app.MAX_MESSENGER_WEBHOOK_BYTES + 1
+
+    body = app.messenger_post()
+
+    assert_equal(response.status, 413, "oversized declared Messenger body status")
+    assert_equal(body, "payload too large", "oversized declared Messenger body response")
+    assert_equal(requests.calls, [], "oversized declared Messenger body must not reply")
+
+
+def test_messenger_post_rejects_oversized_streamed_body():
+    app, request, response, requests = load_app()
+    request.content_length = None
+    request.body = io.BytesIO(b"x" * (app.MAX_MESSENGER_WEBHOOK_BYTES + 1))
+
+    body = app.messenger_post()
+
+    assert_equal(response.status, 413, "oversized streamed Messenger body status")
+    assert_equal(body, "payload too large", "oversized streamed Messenger body response")
+    assert_equal(requests.calls, [], "oversized streamed Messenger body must not reply")
 
 
 def test_messenger_verification_requires_matching_token():
@@ -609,6 +652,8 @@ def main():
     tests = [
         test_completed_plans_are_in_docs_plans,
         test_runtime_and_ci_contracts,
+        test_messenger_post_rejects_oversized_declared_body,
+        test_messenger_post_rejects_oversized_streamed_body,
         test_messenger_verification_requires_matching_token,
         test_messenger_verification_accepts_matching_token,
         test_messenger_post_ignores_non_message_events,

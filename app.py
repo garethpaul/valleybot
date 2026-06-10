@@ -13,6 +13,7 @@ import settings
 debug(os.environ.get("BOTTLE_DEBUG", "").strip().lower() == "true")
 
 app = Bottle()
+MAX_MESSENGER_WEBHOOK_BYTES = 1024 * 1024
 
 
 # SLACK INTEGRATION
@@ -57,7 +58,15 @@ def messenger_post():
     """
     Handler for webhook (currently for postback and messages)
     """
-    raw_body = request.body.read()
+    content_length = getattr(request, "content_length", None)
+    if content_length is not None and content_length > MAX_MESSENGER_WEBHOOK_BYTES:
+        response.status = 413
+        return "payload too large"
+
+    raw_body = request.body.read(MAX_MESSENGER_WEBHOOK_BYTES + 1)
+    if len(raw_body) > MAX_MESSENGER_WEBHOOK_BYTES:
+        response.status = 413
+        return "payload too large"
     try:
         request.body.seek(0)
     except (AttributeError, IOError):

@@ -59,14 +59,16 @@ The setup commands above are derived from repository files. Legacy mobile, Pytho
   JSON request validation, bot conversation log privacy, plus request timeout
   parsing checks. Slack command text, Messenger webhook object type, Messenger
   webhook text, and Messenger sender IDs must be valid before response
-  generation.
+  generation. Messenger POST bodies larger than 1 MiB are rejected with HTTP
+  413 before signature verification or JSON parsing.
 - `make check` runs `make verify` with bytecode cleanup before and after.
 - `make prepare-corpora` installs the current TextBlob tokenizer and tagger
   data into the existing project-local `nltk_data` directory. Heroku runs the
   same step through `bin/post_compile`.
 - `python scripts/check_valleybot_contracts.py` runs just the webhook and token-handling contracts.
 - GitHub Actions installs dependencies and runs the complete gate on Python
-  3.10, 3.12, and 3.14 with read-only permissions and immutable action pins.
+  3.10, 3.12, and 3.14 on Ubuntu 24.04 with read-only permissions, immutable
+  action pins, and cancellation for superseded runs.
 - Completed maintenance plans live under `docs/plans` and are checked by
   `make check`.
 - `python -m unittest bot_tests` runs the real Bottle/WebTest and bot suite.
@@ -82,6 +84,7 @@ When the required SDK or runtime is unavailable, use static checks and source re
   HMAC on Messenger POST payloads.
 - `REQUEST_TIMEOUT` optionally overrides outbound Messenger request timeout
   seconds; invalid, non-finite, or non-positive values fall back to `5.0`.
+- Messenger webhook request bodies are limited to 1 MiB.
 
 ## Security and Privacy Notes
 
@@ -119,6 +122,8 @@ When the required SDK or runtime is unavailable, use static checks and source re
   response log privacy coverage.
 - See `docs/plans/2026-06-10-python3-runtime-modernization.md` for the Python 3,
   dependency, corpus, runtime-test, webhook-signature, and CI modernization.
+- See `docs/plans/2026-06-10-messenger-webhook-size-limit.md` for the completed
+  unauthenticated request-body limit.
 
 ## Contributing
 

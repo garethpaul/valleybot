@@ -2,6 +2,10 @@
 
 ## 2026-06-10
 
+- Limited unauthenticated Messenger webhook bodies to 1 MiB and reject both
+  oversized declared and streamed payloads with HTTP 413 before parsing.
+- Added dependency-free and Bottle/WebTest regressions, rooted Make execution,
+  and a fixed Ubuntu 24.04 CI runner.
 - Replaced the Python 2.7 runtime declaration and 2015-era dependencies with
   Python 3.14 metadata and current stable Bottle, NLTK, Requests, TextBlob, and
   WebTest releases.

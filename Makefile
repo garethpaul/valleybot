@@ -1,4 +1,5 @@
 PYTHON ?= python3
+ROOT := $(abspath $(dir $(lastword $(MAKEFILE_LIST))))
 
 PYTHON_FILES := \
 	app.py \
@@ -15,18 +16,18 @@ check: clean verify
 	$(MAKE) clean
 
 clean:
-	find . -type f \( -name '*.pyc' -o -name '*.pyo' \) -delete
-	find . -type d -name '__pycache__' -prune -exec rm -rf {} +
+	find "$(ROOT)" -type f \( -name '*.pyc' -o -name '*.pyo' \) -delete
+	find "$(ROOT)" -type d -name '__pycache__' -prune -exec rm -rf {} +
 
 lint:
-	PYTHONDONTWRITEBYTECODE=1 $(PYTHON) -m py_compile $(PYTHON_FILES)
+	cd "$(ROOT)" && PYTHONDONTWRITEBYTECODE=1 $(PYTHON) -m py_compile $(PYTHON_FILES)
 
 prepare-corpora:
-	PYTHON=$(PYTHON) ./scripts/prepare_nltk_data.sh
+	PYTHON=$(PYTHON) "$(ROOT)/scripts/prepare_nltk_data.sh"
 
 test: prepare-corpora
-	PYTHONDONTWRITEBYTECODE=1 $(PYTHON) scripts/check_valleybot_contracts.py
-	env SLACK_TOKEN=test-slack-token MESSENGER_TOKEN=test-page-token MESSENGER_VERIFY_TOKEN=test-verify-token $(PYTHON) -m unittest bot_tests
+	PYTHONDONTWRITEBYTECODE=1 $(PYTHON) "$(ROOT)/scripts/check_valleybot_contracts.py"
+	cd "$(ROOT)" && env SLACK_TOKEN=test-slack-token MESSENGER_TOKEN=test-page-token MESSENGER_VERIFY_TOKEN=test-verify-token $(PYTHON) -m unittest bot_tests
 
 build: lint
 
