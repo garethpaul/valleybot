@@ -9,3 +9,11 @@ __*
 \#*
 env/
 settings.py
+.venv/
+__pycache__/
+.pytest_cache/
+nltk_data/tokenizers/punkt_tab/
+nltk_data/tokenizers/punkt_tab.zip
+nltk_data/taggers/averaged_perceptron_tagger_eng/
+nltk_data/taggers/averaged_perceptron_tagger_eng.zip
+nltk_data/corpora/wordnet.zip

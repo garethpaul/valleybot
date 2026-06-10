@@ -33,7 +33,7 @@ Additional scan context:
 ### Prerequisites
 
 - Git
-- Python matching the era of the project
+- Python 3.10 or newer; deployment tracks the Python 3.14 line
 
 ### Setup
 
@@ -41,13 +41,15 @@ Additional scan context:
 git clone https://github.com/garethpaul/valleybot.git
 cd valleybot
 python -m pip install -r requirements.txt
+make prepare-corpora
 ```
 
 The setup commands above are derived from repository files. Legacy mobile, Python, or JavaScript samples may require older SDKs or package versions than a modern workstation uses by default.
 
 ## Running or Using the Project
 
-- Run `python app.py` after installing Python dependencies.
+- Run `python app.py` after installing Python dependencies. Bottle debug mode
+  remains off unless `BOTTLE_DEBUG=true` is explicitly set for local work.
 
 ## Testing and Verification
 
@@ -59,10 +61,15 @@ The setup commands above are derived from repository files. Legacy mobile, Pytho
   webhook text, and Messenger sender IDs must be valid before response
   generation.
 - `make check` runs `make verify` with bytecode cleanup before and after.
+- `make prepare-corpora` installs the current TextBlob tokenizer and tagger
+  data into the existing project-local `nltk_data` directory. Heroku runs the
+  same step through `bin/post_compile`.
 - `python scripts/check_valleybot_contracts.py` runs just the webhook and token-handling contracts.
+- GitHub Actions installs dependencies and runs the complete gate on Python
+  3.10, 3.12, and 3.14 with read-only permissions and immutable action pins.
 - Completed maintenance plans live under `docs/plans` and are checked by
   `make check`.
-- `python -m unittest bot_tests` runs the legacy Python 2 test suite when its dependencies are installed.
+- `python -m unittest bot_tests` runs the real Bottle/WebTest and bot suite.
 
 When the required SDK or runtime is unavailable, use static checks and source review first, then verify on a machine that has the matching platform toolchain.
 
@@ -71,6 +78,8 @@ When the required SDK or runtime is unavailable, use static checks and source re
 - `SLACK_TOKEN` configures the Slack integration.
 - `MESSENGER_TOKEN` configures Facebook Messenger API replies.
 - `MESSENGER_VERIFY_TOKEN` configures Messenger webhook verification; it falls back to `MESSENGER_TOKEN` for older deployments.
+- `MESSENGER_APP_SECRET` is required to validate the `X-Hub-Signature-256`
+  HMAC on Messenger POST payloads.
 - `REQUEST_TIMEOUT` optionally overrides outbound Messenger request timeout
   seconds; invalid, non-finite, or non-positive values fall back to `5.0`.
 
@@ -108,6 +117,8 @@ When the required SDK or runtime is unavailable, use static checks and source re
   rejecting non-page Messenger webhook payloads before event parsing.
 - See `docs/plans/2026-06-09-valleybot-bot-log-privacy.md` for bot message and
   response log privacy coverage.
+- See `docs/plans/2026-06-10-python3-runtime-modernization.md` for the Python 3,
+  dependency, corpus, runtime-test, webhook-signature, and CI modernization.
 
 ## Contributing
 

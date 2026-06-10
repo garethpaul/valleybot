@@ -14,6 +14,10 @@ The current focus is:
 
 Priority:
 
+- Keep the service on supported Python 3 and current audited dependencies
+- Require authenticated Messenger POST payloads before event parsing
+- Run the complete runtime suite across supported Python versions in CI
+
 - Preserve the `bot.respond` and integration entry points
 - Keep channel tokens and secrets in settings/environment configuration
 - Reject blank or non-text channel commands before response generation

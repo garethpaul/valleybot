@@ -1,9 +1,12 @@
 import unittest
 import os
+import hashlib
+import hmac
 
 os.environ.setdefault('SLACK_TOKEN', 'test-slack-token')
 os.environ.setdefault('MESSENGER_TOKEN', 'test-page-token')
 os.environ.setdefault('MESSENGER_VERIFY_TOKEN', 'test-verify-token')
+os.environ.setdefault('MESSENGER_APP_SECRET', 'test-app-secret')
 
 import bot
 import nltk
@@ -126,7 +129,7 @@ class TestFacebook(unittest.TestCase):
         """
         A test with a sample payload for the messenger bot.
         """
-        r = test_app.post_json('/messenger/webhook', self.data)
+        r = self.post_signed_json(self.data)
         self.assertEqual(r.status_int, 200)
 
     def test_facebook_response(self):
@@ -165,7 +168,7 @@ class TestFacebook(unittest.TestCase):
                          self.challenge +
                          '&hub.verify_token=' +
                          app.settings.messenger_verify_token)
-        self.assertTrue(r.body == self.challenge)
+        self.assertEqual(r.text, self.challenge)
 
     def test_facebook_challenge_rejects_bad_token(self):
         """
@@ -184,8 +187,30 @@ class TestFacebook(unittest.TestCase):
         data = {'object': 'page',
                 'entry': [{'messaging': [{'sender': {'id': self.user_id},
                                           'delivery': {'mids': ['mid-1']}}]}]}
-        r = test_app.post_json('/messenger/webhook', data)
+        r = self.post_signed_json(data)
         self.assertEqual(r.status_int, 200)
+
+    def test_facebook_webhook_rejects_invalid_signature(self):
+        body = json.dumps(self.data).encode('utf-8')
+        r = test_app.post(
+            '/messenger/webhook',
+            body,
+            headers={'X-Hub-Signature-256': 'sha256=invalid'},
+            content_type='application/json',
+            expect_errors=True)
+        self.assertEqual(r.status_int, 403)
+
+    def post_signed_json(self, payload):
+        body = json.dumps(payload).encode('utf-8')
+        signature = 'sha256=' + hmac.new(
+            app.settings.messenger_app_secret.encode('utf-8'),
+            body,
+            hashlib.sha256).hexdigest()
+        return test_app.post(
+            '/messenger/webhook',
+            body,
+            headers={'X-Hub-Signature-256': signature},
+            content_type='application/json')
 
 if __name__ == '__main__':
     unittest.main()

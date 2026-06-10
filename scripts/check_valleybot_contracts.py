@@ -1,6 +1,9 @@
 #!/usr/bin/env python3
 """Dependency-free route contract checks for the legacy Bottle app."""
 import importlib.util
+import hashlib
+import hmac
+import io
 import json
 import os
 import sys
@@ -41,6 +44,9 @@ BOT_LOGGING_PRIVACY_PLAN_PATH = (
 MESSENGER_OBJECT_PLAN_PATH = (
     ROOT / "docs" / "plans" / "2026-06-09-valleybot-messenger-object-guard.md"
 )
+RUNTIME_PLAN_PATH = (
+    ROOT / "docs" / "plans" / "2026-06-10-python3-runtime-modernization.md"
+)
 
 
 class FakeBottle:
@@ -56,6 +62,11 @@ class MutableRequest:
         self.forms = {}
         self.query = {}
         self.json = None
+        self.body = io.BytesIO(b"")
+        self.headers = {
+            "X-Hub-Signature-256": "sha256=" + hmac.new(
+                b"app-secret", b"", hashlib.sha256).hexdigest()
+        }
 
 
 class MutableResponse:
@@ -99,6 +110,7 @@ def install_stubs():
     settings.slack_token = "slack-secret"
     settings.messenger_token = "page-token"
     settings.messenger_verify_token = "verify-secret"
+    settings.messenger_app_secret = "app-secret"
     settings.messenger_url = "https://graph.facebook.com/v2.6/me/messages"
     settings.request_timeout = 5
 
@@ -198,6 +210,37 @@ def test_completed_plans_are_in_docs_plans():
     assert_completed_plan(MESSENGER_TEXT_PLAN_PATH, "Messenger text")
     assert_completed_plan(BOT_LOGGING_PRIVACY_PLAN_PATH, "bot logging privacy")
     assert_completed_plan(MESSENGER_OBJECT_PLAN_PATH, "Messenger object")
+    assert_completed_plan(RUNTIME_PLAN_PATH, "Python 3 runtime modernization")
+
+
+def test_runtime_and_ci_contracts():
+    requirements = (ROOT / "requirements.txt").read_text(encoding="utf-8")
+    for requirement in (
+            "bottle==0.13.4",
+            "nltk==3.9.4",
+            "requests==2.34.2",
+            "textblob==0.20.0",
+            "WebTest==3.0.7"):
+        assert_true(requirement in requirements, "missing runtime pin {0}".format(requirement))
+
+    assert_equal((ROOT / ".python-version").read_text(encoding="utf-8").strip(), "3.14", "deployment Python line")
+    assert_true(not (ROOT / "runtime.txt").exists(), "deprecated runtime.txt must remain removed")
+
+    workflow = (ROOT / ".github/workflows/check.yml").read_text(encoding="utf-8")
+    for contract in (
+            "permissions:\n  contents: read",
+            "timeout-minutes: 15",
+            'python-version: ["3.10", "3.12", "3.14"]',
+            "actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10",
+            "actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405",
+            "python -m pip install -r requirements.txt",
+            "make check PYTHON=python"):
+        assert_true(contract in workflow, "missing CI contract {0}".format(contract))
+    assert_true("@v" not in workflow, "CI actions must use immutable commits")
+
+    app_source = (ROOT / "app.py").read_text(encoding="utf-8")
+    assert_true("debug(True)" not in app_source, "Bottle debug mode must not be enabled by default")
+    assert_true("verify_messenger_signature" in app_source, "Messenger POST signatures must remain required")
 
 
 def test_messenger_verification_requires_matching_token():
@@ -565,6 +608,7 @@ def test_standalone_slack_handler_rejects_non_text_values():
 def main():
     tests = [
         test_completed_plans_are_in_docs_plans,
+        test_runtime_and_ci_contracts,
         test_messenger_verification_requires_matching_token,
         test_messenger_verification_accepts_matching_token,
         test_messenger_post_ignores_non_message_events,

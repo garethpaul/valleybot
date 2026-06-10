@@ -1,5 +1,14 @@
 # Changes
 
+## 2026-06-10
+
+- Replaced the Python 2.7 runtime declaration and 2015-era dependencies with
+  Python 3.14 metadata and current stable Bottle, NLTK, Requests, TextBlob, and
+  WebTest releases.
+- Made the real unittest/WebTest suite mandatory in `make check`.
+- Disabled Bottle debug mode by default while preserving explicit local opt-in.
+- Required SHA-256 Messenger webhook signatures before parsing POST events.
+
 ## 2026-06-09
 
 - Rejected non-page Messenger webhook payloads before event parsing or reply

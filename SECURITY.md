@@ -35,6 +35,10 @@ Helpful reports include:
 
 ## Service and API Notes
 
+Messenger POST webhooks are accepted only when `X-Hub-Signature-256` matches
+the raw request body under `MESSENGER_APP_SECRET`. Keep that secret distinct
+from page and verification tokens and rotate it if webhook logs expose it.
+
 For web services, APIs, sockets, or scraping workflows, prioritize reports involving authentication bypass, authorization errors, injection, server-side request forgery, unsafe deserialization, credential leakage, data exposure, or denial-of-service conditions. Use test accounts and minimal proof-of-concept traffic only.
 
 Messenger webhook events should only generate bot replies when sender IDs and
