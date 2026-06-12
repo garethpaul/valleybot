@@ -261,6 +261,8 @@ def test_runtime_and_ci_contracts():
     assert_true("branches:" not in workflow, "CI push checks must cover every branch")
     assert_true("# v6.0.3" in workflow, "checkout pin annotation must identify the exact release")
     assert_true("# v6.2.0" in workflow, "setup-python pin annotation must identify the exact release")
+    assert_equal(workflow.count("persist-credentials:"), 1, "checkout credential setting count")
+    assert_true("persist-credentials: true" not in workflow, "checkout credentials must not persist")
 
     action_uses = []
     for line in workflow.splitlines():
@@ -285,6 +287,9 @@ def test_runtime_and_ci_contracts():
     assert_true("GitHub Actions" in readme, "README must document the GitHub Actions check")
     gitignore = (ROOT / ".gitignore").read_text(encoding="utf-8")
     assert_true("!.github/workflows/check.yml" in gitignore, "workflow file must not be hidden by dotfile ignores")
+    security = (ROOT / "SECURITY.md").read_text(encoding="utf-8")
+    for security_contract in ("X-Hub-Signature-256", "MESSENGER_APP_SECRET", "1 MiB"):
+        assert_true(security_contract in security, "SECURITY.md must document {0}".format(security_contract))
 
     makefile = (ROOT / "Makefile").read_text(encoding="utf-8")
     assert_true("ROOT := $(abspath $(dir $(lastword $(MAKEFILE_LIST))))" in makefile, "Makefile must resolve the repository root")
@@ -322,6 +327,18 @@ def test_messenger_post_rejects_oversized_streamed_body():
     assert_equal(response.status, 413, "oversized streamed Messenger body status")
     assert_equal(body, "payload too large", "oversized streamed Messenger body response")
     assert_equal(requests.calls, [], "oversized streamed Messenger body must not reply")
+
+
+def test_messenger_post_rejects_invalid_signature():
+    app, request, response, requests = load_app()
+    request.headers = {"X-Hub-Signature-256": "sha256=invalid"}
+    request.json = {"object": "page", "entry": []}
+
+    body = app.messenger_post()
+
+    assert_equal(response.status, 403, "invalid Messenger signature status")
+    assert_equal(body, "forbidden", "invalid Messenger signature response")
+    assert_equal(requests.calls, [], "invalid Messenger signature must not reply")
 
 
 def test_messenger_verification_requires_matching_token():
@@ -704,6 +721,7 @@ def main():
         test_runtime_and_ci_contracts,
         test_messenger_post_rejects_oversized_declared_body,
         test_messenger_post_rejects_oversized_streamed_body,
+        test_messenger_post_rejects_invalid_signature,
         test_messenger_verification_requires_matching_token,
         test_messenger_verification_accepts_matching_token,
         test_messenger_post_ignores_non_message_events,

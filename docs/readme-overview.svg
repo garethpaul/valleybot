@@ -53,8 +53,7 @@
     <rect x="910" y="78" width="196" height="36" rx="18" fill="#e9defc" stroke="#c3a4f7"/>
     <circle cx="934" cy="96" r="6" fill="#7c3aed"/>
     <text x="950" y="101" fill="#272243" font-size="15" font-weight="700">AI workflow</text>
-    <text x="86" y="166" fill="#475569" font-size="20" font-weight="500">A Python web API or service project. A chatbot for FB, Slack, Web and more</text>
-<text x="86" y="193" fill="#475569" font-size="20" font-weight="500">that</text>
+    <text x="86" y="166" fill="#475569" font-size="20" font-weight="500">A Python chatbot service for Facebook, Slack, and the web.</text>
   </g>
 
   <g transform="translate(84 222)">
@@ -106,7 +105,7 @@
 <g transform="translate(24 196)">
       <circle cx="10" cy="15" r="6" fill="#f97316"/>
       <text x="28" y="11" fill="#64748b" font-size="12" font-weight="800">VERIFY</text>
-      <text x="28" y="34" fill="#1f2937" font-size="15" font-weight="650">make verify runs syntax checks and...</text>
+      <text x="28" y="34" fill="#1f2937" font-size="15" font-weight="650">make check runs the full test gate</text>
     </g>
 <g transform="translate(24 247)">
       <circle cx="10" cy="15" r="6" fill="#7c3aed"/>
