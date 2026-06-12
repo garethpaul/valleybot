@@ -2,10 +2,24 @@
 
 ## 2026-06-10
 
-- Added a lightweight GitHub Actions workflow that runs `make check` for the
-  dependency-free route and integration contract baseline.
+- Contained generated-response filter rejections and returned a reviewed generic
+  fallback instead of failing web, Slack, or Messenger requests.
+- Limited unauthenticated Messenger webhook bodies to 1 MiB and reject both
+  oversized declared and streamed payloads with HTTP 413 before parsing.
+- Added dependency-free and Bottle/WebTest regressions, rooted Make execution,
+  and a fixed Ubuntu 24.04 CI runner.
+- Replaced the Python 2.7 runtime declaration and 2015-era dependencies with
+  Python 3.14 metadata and current stable Bottle, NLTK, Requests, TextBlob, and
+  WebTest releases.
+- Made the real unittest/WebTest suite mandatory in `make check`.
+- Disabled Bottle debug mode by default while preserving explicit local opt-in.
+- Required SHA-256 Messenger webhook signatures before parsing POST events.
+- Added a pinned GitHub Actions matrix that runs `make check` on every branch,
+  pull request, and manual dispatch with credential-free checkout.
 - Extended the contract checker to require the CI workflow and completed CI
-  plan.
+  plan, including verification from outside the repository directory.
+- Fixed recursive cleanup so external-working-directory checks use the
+  repository Makefile instead of the caller's directory.
 
 ## 2026-06-09
 

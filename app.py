@@ -1,16 +1,19 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 from sys import argv
+import os
 from bottle import Bottle, template, request, response, debug
 import bot
 import hmac
+import hashlib
 import json
 import requests
 import settings
 
-debug(True)
+debug(os.environ.get("BOTTLE_DEBUG", "").strip().lower() == "true")
 
 app = Bottle()
+MAX_MESSENGER_WEBHOOK_BYTES = 1024 * 1024
 
 
 # SLACK INTEGRATION
@@ -55,6 +58,25 @@ def messenger_post():
     """
     Handler for webhook (currently for postback and messages)
     """
+    content_length = getattr(request, "content_length", None)
+    if content_length is not None and content_length > MAX_MESSENGER_WEBHOOK_BYTES:
+        response.status = 413
+        return "payload too large"
+
+    raw_body = request.body.read(MAX_MESSENGER_WEBHOOK_BYTES + 1)
+    if len(raw_body) > MAX_MESSENGER_WEBHOOK_BYTES:
+        response.status = 413
+        return "payload too large"
+    try:
+        request.body.seek(0)
+    except (AttributeError, IOError):
+        pass
+    signature = request.headers.get("X-Hub-Signature-256")
+    if not verify_messenger_signature(
+            raw_body, signature, settings.messenger_app_secret):
+        response.status = 403
+        return "forbidden"
+
     data = request.json
     if not isinstance(data, dict):
         response.status = 400
@@ -73,6 +95,16 @@ def messenger_post():
 
     # must send back response quickly
     return "ok"
+
+
+def verify_messenger_signature(raw_body, signature, app_secret):
+    if not (raw_body is not None and signature and app_secret):
+        return False
+    if isinstance(raw_body, str):
+        raw_body = raw_body.encode("utf-8")
+    expected = "sha256=" + hmac.new(
+        app_secret.encode("utf-8"), raw_body, hashlib.sha256).hexdigest()
+    return secure_compare(signature, expected)
 
 
 def secure_compare(left, right):

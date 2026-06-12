@@ -1,5 +1,5 @@
-PYTHON ?= python
-PYTHON2 ?= python2
+PYTHON ?= python3
+ROOT := $(abspath $(dir $(lastword $(MAKEFILE_LIST))))
 
 PYTHON_FILES := \
 	app.py \
@@ -10,25 +10,24 @@ PYTHON_FILES := \
 	slack.py \
 	scripts/check_valleybot_contracts.py
 
-.PHONY: clean lint test build verify check
+.PHONY: clean lint prepare-corpora test build verify check
 
 check: clean verify
-	$(MAKE) clean
+	$(MAKE) -f "$(ROOT)/Makefile" clean
 
 clean:
-	find . -type f \( -name '*.pyc' -o -name '*.pyo' \) -delete
-	find . -type d -name '__pycache__' -prune -exec rm -rf {} +
+	find "$(ROOT)" -type f \( -name '*.pyc' -o -name '*.pyo' \) -delete
+	find "$(ROOT)" -type d -name '__pycache__' -prune -exec rm -rf {} +
 
 lint:
-	PYTHONDONTWRITEBYTECODE=1 $(PYTHON) -m py_compile $(PYTHON_FILES)
+	cd "$(ROOT)" && PYTHONDONTWRITEBYTECODE=1 $(PYTHON) -m py_compile $(PYTHON_FILES)
 
-test:
-	PYTHONDONTWRITEBYTECODE=1 $(PYTHON) scripts/check_valleybot_contracts.py
-	@if command -v $(PYTHON2) >/dev/null 2>&1 && $(PYTHON2) -c "import bottle, nltk, requests, textblob, webtest" >/dev/null 2>&1; then \
-		env SLACK_TOKEN=test-slack-token MESSENGER_TOKEN=test-page-token MESSENGER_VERIFY_TOKEN=test-verify-token $(PYTHON2) -m unittest bot_tests; \
-	else \
-		echo "Skipping legacy Python 2 bot_tests: dependencies are not installed."; \
-	fi
+prepare-corpora:
+	PYTHON=$(PYTHON) "$(ROOT)/scripts/prepare_nltk_data.sh"
+
+test: prepare-corpora
+	PYTHONDONTWRITEBYTECODE=1 $(PYTHON) "$(ROOT)/scripts/check_valleybot_contracts.py"
+	cd "$(ROOT)" && env SLACK_TOKEN=test-slack-token MESSENGER_TOKEN=test-page-token MESSENGER_VERIFY_TOKEN=test-verify-token $(PYTHON) -m unittest bot_tests
 
 build: lint
 

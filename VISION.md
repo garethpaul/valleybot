@@ -14,6 +14,11 @@ The current focus is:
 
 Priority:
 
+- Keep the service on supported Python 3 and current audited dependencies
+- Require authenticated Messenger POST payloads before event parsing
+- Bound unauthenticated Messenger request bodies before signature verification
+- Run the complete runtime suite across supported Python versions in CI
+
 - Preserve the `bot.respond` and integration entry points
 - Keep channel tokens and secrets in settings/environment configuration
 - Reject blank or non-text channel commands before response generation
@@ -27,6 +32,7 @@ Priority:
 - Keep outbound request timeout configuration bounded and non-crashing
 - Maintain the response filter and tests
 - Keep the dependency-free `make check` baseline running in GitHub Actions
+- Return reviewed fallback text when a generated response fails moderation
 - Avoid expanding stereotype content without review
 
 Next priorities:
@@ -58,6 +64,7 @@ default, and keep deployment credentials out of source control.
 - Messenger webhook payloads that bypass page-object validation
 - Moderation bypasses
 - Private conversation logs
+- Unbounded webhook request bodies
 - New stereotype content without review context
 
 This list is a roadmap guardrail, not a permanent rule.

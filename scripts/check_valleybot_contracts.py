@@ -1,6 +1,9 @@
 #!/usr/bin/env python3
 """Dependency-free route contract checks for the legacy Bottle app."""
 import importlib.util
+import hashlib
+import hmac
+import io
 import json
 import os
 import sys
@@ -43,6 +46,15 @@ MESSENGER_OBJECT_PLAN_PATH = (
 )
 CI_PLAN_PATH = ROOT / "docs" / "plans" / "2026-06-10-ci-baseline.md"
 CI_WORKFLOW_PATH = ROOT / ".github" / "workflows" / "check.yml"
+RUNTIME_PLAN_PATH = (
+    ROOT / "docs" / "plans" / "2026-06-10-python3-runtime-modernization.md"
+)
+WEBHOOK_SIZE_PLAN_PATH = (
+    ROOT / "docs" / "plans" / "2026-06-10-messenger-webhook-size-limit.md"
+)
+FILTER_FALLBACK_PLAN_PATH = (
+    ROOT / "docs" / "plans" / "2026-06-10-filtered-response-fallback.md"
+)
 
 
 class FakeBottle:
@@ -58,6 +70,12 @@ class MutableRequest:
         self.forms = {}
         self.query = {}
         self.json = None
+        self.body = io.BytesIO(b"")
+        self.content_length = 0
+        self.headers = {
+            "X-Hub-Signature-256": "sha256=" + hmac.new(
+                b"app-secret", b"", hashlib.sha256).hexdigest()
+        }
 
 
 class MutableResponse:
@@ -101,6 +119,7 @@ def install_stubs():
     settings.slack_token = "slack-secret"
     settings.messenger_token = "page-token"
     settings.messenger_verify_token = "verify-secret"
+    settings.messenger_app_secret = "app-secret"
     settings.messenger_url = "https://graph.facebook.com/v2.6/me/messages"
     settings.request_timeout = 5
 
@@ -201,23 +220,108 @@ def test_completed_plans_are_in_docs_plans():
     assert_completed_plan(BOT_LOGGING_PRIVACY_PLAN_PATH, "bot logging privacy")
     assert_completed_plan(MESSENGER_OBJECT_PLAN_PATH, "Messenger object")
     assert_completed_plan(CI_PLAN_PATH, "CI baseline")
+    assert_completed_plan(RUNTIME_PLAN_PATH, "Python 3 runtime modernization")
+    assert_completed_plan(WEBHOOK_SIZE_PLAN_PATH, "Messenger webhook size limit")
+    assert_completed_plan(FILTER_FALLBACK_PLAN_PATH, "filtered response fallback")
 
 
-def test_ci_workflow_runs_make_check():
+def test_runtime_and_ci_contracts():
+    requirements = (ROOT / "requirements.txt").read_text(encoding="utf-8")
+    for requirement in (
+            "bottle==0.13.4",
+            "nltk==3.9.4",
+            "requests==2.34.2",
+            "textblob==0.20.0",
+            "WebTest==3.0.7"):
+        assert_true(requirement in requirements, "missing runtime pin {0}".format(requirement))
+
+    assert_equal((ROOT / ".python-version").read_text(encoding="utf-8").strip(), "3.14", "deployment Python line")
+    assert_true(not (ROOT / "runtime.txt").exists(), "deprecated runtime.txt must remain removed")
+
     assert_true(CI_WORKFLOW_PATH.is_file(), "GitHub Actions check workflow must exist")
-    workflow = CI_WORKFLOW_PATH.read_text()
-    for fragment in (
-        "actions/checkout@v4",
-        "actions/setup-python@v5",
-        'python-version: "3.12"',
-        "make check",
-    ):
-        assert_true(fragment in workflow, "CI workflow must include {0}".format(fragment))
+    workflow = CI_WORKFLOW_PATH.read_text(encoding="utf-8")
+    for contract in (
+            "push:\n  pull_request:",
+            "permissions:\n  contents: read",
+            "concurrency:",
+            "cancel-in-progress: true",
+            "runs-on: ubuntu-24.04",
+            "timeout-minutes: 15",
+            'python-version: ["3.10", "3.12", "3.14"]',
+            "actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10",
+            "actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405",
+            "persist-credentials: false",
+            "python -m pip install -r requirements.txt",
+            "make check PYTHON=python",
+            'make -f "$GITHUB_WORKSPACE/Makefile" check PYTHON=python'):
+        assert_true(contract in workflow, "missing CI contract {0}".format(contract))
+    assert_true("@v" not in workflow, "CI actions must use immutable commits")
+    assert_true("ubuntu-latest" not in workflow, "CI must not use a floating Ubuntu runner")
+    assert_true("pull_request_target" not in workflow, "CI must not run untrusted code with target-branch privileges")
+    assert_true("branches:" not in workflow, "CI push checks must cover every branch")
+    assert_true("# v6.0.3" in workflow, "checkout pin annotation must identify the exact release")
+    assert_true("# v6.2.0" in workflow, "setup-python pin annotation must identify the exact release")
 
-    readme = (ROOT / "README.md").read_text()
+    action_uses = []
+    for line in workflow.splitlines():
+        action_line = line.strip()
+        if action_line.startswith("- "):
+            action_line = action_line[2:]
+        if action_line.startswith("uses: "):
+            action_uses.append(action_line)
+    assert_equal(len(action_uses), 2, "CI action count")
+    assert_equal(
+        set(action_uses),
+        {
+            "uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3",
+            "uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6.2.0",
+        },
+        "CI action allowlist",
+    )
+    workflow_files = list((ROOT / ".github" / "workflows").glob("*.y*ml"))
+    assert_equal(workflow_files, [CI_WORKFLOW_PATH], "CI workflow file set")
+
+    readme = (ROOT / "README.md").read_text(encoding="utf-8")
     assert_true("GitHub Actions" in readme, "README must document the GitHub Actions check")
-    gitignore = (ROOT / ".gitignore").read_text()
+    gitignore = (ROOT / ".gitignore").read_text(encoding="utf-8")
     assert_true("!.github/workflows/check.yml" in gitignore, "workflow file must not be hidden by dotfile ignores")
+
+    makefile = (ROOT / "Makefile").read_text(encoding="utf-8")
+    assert_true("ROOT := $(abspath $(dir $(lastword $(MAKEFILE_LIST))))" in makefile, "Makefile must resolve the repository root")
+    assert_true('find "$(ROOT)"' in makefile, "Makefile cleanup must stay inside the repository")
+    assert_true('"$(ROOT)/scripts/check_valleybot_contracts.py"' in makefile, "Makefile must use the rooted contract path")
+    assert_true('$(MAKE) -f "$(ROOT)/Makefile" clean' in makefile, "recursive cleanup must use the repository Makefile")
+
+    app_source = (ROOT / "app.py").read_text(encoding="utf-8")
+    runtime_tests = (ROOT / "bot_tests.py").read_text(encoding="utf-8")
+    assert_true("debug(True)" not in app_source, "Bottle debug mode must not be enabled by default")
+    assert_true("verify_messenger_signature" in app_source, "Messenger POST signatures must remain required")
+    assert_true("MAX_MESSENGER_WEBHOOK_BYTES = 1024 * 1024" in app_source, "Messenger webhook size limit must remain 1 MiB")
+    assert_true("request.body.read(MAX_MESSENGER_WEBHOOK_BYTES + 1)" in app_source, "Messenger body reads must be bounded")
+    assert_true("test_facebook_webhook_rejects_oversized_payload" in runtime_tests, "Bottle/WebTest must cover oversized Messenger payloads")
+
+
+def test_messenger_post_rejects_oversized_declared_body():
+    app, request, response, requests = load_app()
+    request.content_length = app.MAX_MESSENGER_WEBHOOK_BYTES + 1
+
+    body = app.messenger_post()
+
+    assert_equal(response.status, 413, "oversized declared Messenger body status")
+    assert_equal(body, "payload too large", "oversized declared Messenger body response")
+    assert_equal(requests.calls, [], "oversized declared Messenger body must not reply")
+
+
+def test_messenger_post_rejects_oversized_streamed_body():
+    app, request, response, requests = load_app()
+    request.content_length = None
+    request.body = io.BytesIO(b"x" * (app.MAX_MESSENGER_WEBHOOK_BYTES + 1))
+
+    body = app.messenger_post()
+
+    assert_equal(response.status, 413, "oversized streamed Messenger body status")
+    assert_equal(body, "payload too large", "oversized streamed Messenger body response")
+    assert_equal(requests.calls, [], "oversized streamed Messenger body must not reply")
 
 
 def test_messenger_verification_requires_matching_token():
@@ -483,6 +587,18 @@ def test_bot_logging_avoids_private_message_text():
     )
 
 
+def test_filtered_responses_use_reviewed_fallback():
+    source = (ROOT / "bot.py").read_text()
+    runtime_tests = (ROOT / "bot_tests.py").read_text()
+
+    assert_true("return safe_response(resp)" in source, "respond must pass generated text through the safe response boundary")
+    assert_true("except UnacceptableUtteranceException:" in source, "content filter rejections must be contained")
+    assert_true("return random.choice(config.NONE_RESPONSES)" in source, "content filter rejections must use reviewed fallback responses")
+    assert_true("Generated response rejected by content filter" in source, "content filter rejections must keep a content-free diagnostic")
+    assert_true("testFilteredResponseUsesReviewedFallback" in runtime_tests, "runtime tests must cover filtered response fallback")
+    assert_true("testAcceptableResponsePassesThroughFilter" in runtime_tests, "runtime tests must cover accepted response passthrough")
+
+
 def test_slack_command_requires_matching_token():
     app, request, response, _requests = load_app()
 
@@ -585,7 +701,9 @@ def test_standalone_slack_handler_rejects_non_text_values():
 def main():
     tests = [
         test_completed_plans_are_in_docs_plans,
-        test_ci_workflow_runs_make_check,
+        test_runtime_and_ci_contracts,
+        test_messenger_post_rejects_oversized_declared_body,
+        test_messenger_post_rejects_oversized_streamed_body,
         test_messenger_verification_requires_matching_token,
         test_messenger_verification_accepts_matching_token,
         test_messenger_post_ignores_non_message_events,
@@ -603,6 +721,7 @@ def main():
         test_web_bot_trims_chat_before_bot_call,
         test_web_template_escapes_chat_strings,
         test_bot_logging_avoids_private_message_text,
+        test_filtered_responses_use_reviewed_fallback,
         test_slack_command_requires_matching_token,
         test_slack_command_accepts_matching_token,
         test_slack_command_rejects_blank_text,
