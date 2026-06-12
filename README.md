@@ -133,6 +133,8 @@ When the required SDK or runtime is unavailable, use static checks and source re
   unauthenticated request-body limit.
 - See `docs/plans/2026-06-10-filtered-response-fallback.md` for the completed
   moderation fallback and runtime regression coverage.
+- See `docs/plans/2026-06-12-messenger-json-content-type.md` for the exact JSON
+  media-type requirement on signed Messenger webhook requests.
 
 ## Contributing
 

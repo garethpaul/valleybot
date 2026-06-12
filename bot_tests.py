@@ -216,6 +216,26 @@ class TestFacebook(unittest.TestCase):
             expect_errors=True)
         self.assertEqual(r.status_int, 403)
 
+    def test_facebook_webhook_accepts_json_content_type_parameters(self):
+        r = self.post_signed_json(
+            self.data,
+            content_type='Application/JSON; charset=UTF-8')
+        self.assertEqual(r.status_int, 200)
+
+    def test_facebook_webhook_rejects_non_json_content_type(self):
+        body = json.dumps(self.data).encode('utf-8')
+        signature = 'sha256=' + hmac.new(
+            app.settings.messenger_app_secret.encode('utf-8'),
+            body,
+            hashlib.sha256).hexdigest()
+        r = test_app.post(
+            '/messenger/webhook',
+            body,
+            headers={'X-Hub-Signature-256': signature},
+            content_type='text/plain',
+            expect_errors=True)
+        self.assertEqual(r.status_int, 415)
+
     def test_facebook_webhook_rejects_oversized_payload(self):
         data = {'object': 'page',
                 'padding': 'x' * app.MAX_MESSENGER_WEBHOOK_BYTES}
@@ -232,7 +252,7 @@ class TestFacebook(unittest.TestCase):
             expect_errors=True)
         self.assertEqual(r.status_int, 413)
 
-    def post_signed_json(self, payload):
+    def post_signed_json(self, payload, content_type='application/json'):
         body = json.dumps(payload).encode('utf-8')
         signature = 'sha256=' + hmac.new(
             app.settings.messenger_app_secret.encode('utf-8'),
@@ -242,7 +262,7 @@ class TestFacebook(unittest.TestCase):
             '/messenger/webhook',
             body,
             headers={'X-Hub-Signature-256': signature},
-            content_type='application/json')
+            content_type=content_type)
 
 if __name__ == '__main__':
     unittest.main()

@@ -1,5 +1,11 @@
 # Changes
 
+## 2026-06-12
+
+- Required an exact `application/json` media type for Messenger POST webhooks,
+  with case-insensitive parameter support and fail-closed 415 responses.
+- Added dependency-free and Bottle/WebTest media-type regression coverage.
+
 ## 2026-06-10
 
 - Contained generated-response filter rejections and returned a reviewed generic

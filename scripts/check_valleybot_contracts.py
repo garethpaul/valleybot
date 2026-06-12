@@ -55,6 +55,9 @@ WEBHOOK_SIZE_PLAN_PATH = (
 FILTER_FALLBACK_PLAN_PATH = (
     ROOT / "docs" / "plans" / "2026-06-10-filtered-response-fallback.md"
 )
+MESSENGER_CONTENT_TYPE_PLAN_PATH = (
+    ROOT / "docs" / "plans" / "2026-06-12-messenger-json-content-type.md"
+)
 
 
 class FakeBottle:
@@ -73,6 +76,7 @@ class MutableRequest:
         self.body = io.BytesIO(b"")
         self.content_length = 0
         self.headers = {
+            "Content-Type": "application/json",
             "X-Hub-Signature-256": "sha256=" + hmac.new(
                 b"app-secret", b"", hashlib.sha256).hexdigest()
         }
@@ -223,6 +227,7 @@ def test_completed_plans_are_in_docs_plans():
     assert_completed_plan(RUNTIME_PLAN_PATH, "Python 3 runtime modernization")
     assert_completed_plan(WEBHOOK_SIZE_PLAN_PATH, "Messenger webhook size limit")
     assert_completed_plan(FILTER_FALLBACK_PLAN_PATH, "filtered response fallback")
+    assert_completed_plan(MESSENGER_CONTENT_TYPE_PLAN_PATH, "Messenger JSON content type")
 
 
 def test_runtime_and_ci_contracts():
@@ -304,6 +309,8 @@ def test_runtime_and_ci_contracts():
     assert_true("MAX_MESSENGER_WEBHOOK_BYTES = 1024 * 1024" in app_source, "Messenger webhook size limit must remain 1 MiB")
     assert_true("request.body.read(MAX_MESSENGER_WEBHOOK_BYTES + 1)" in app_source, "Messenger body reads must be bounded")
     assert_true("test_facebook_webhook_rejects_oversized_payload" in runtime_tests, "Bottle/WebTest must cover oversized Messenger payloads")
+    assert_true("is_json_content_type" in app_source, "Messenger POST requests must require JSON media types")
+    assert_true("test_facebook_webhook_rejects_non_json_content_type" in runtime_tests, "Bottle/WebTest must cover non-JSON Messenger payloads")
 
 
 def test_messenger_post_rejects_oversized_declared_body():
@@ -331,7 +338,10 @@ def test_messenger_post_rejects_oversized_streamed_body():
 
 def test_messenger_post_rejects_invalid_signature():
     app, request, response, requests = load_app()
-    request.headers = {"X-Hub-Signature-256": "sha256=invalid"}
+    request.headers = {
+        "Content-Type": "application/json",
+        "X-Hub-Signature-256": "sha256=invalid",
+    }
     request.json = {"object": "page", "entry": []}
 
     body = app.messenger_post()
@@ -339,6 +349,33 @@ def test_messenger_post_rejects_invalid_signature():
     assert_equal(response.status, 403, "invalid Messenger signature status")
     assert_equal(body, "forbidden", "invalid Messenger signature response")
     assert_equal(requests.calls, [], "invalid Messenger signature must not reply")
+
+
+def test_messenger_post_accepts_json_content_type_parameters():
+    app, request, response, requests = load_app()
+    request.headers["Content-Type"] = "Application/JSON; charset=UTF-8"
+    request.json = {"object": "page", "entry": []}
+
+    body = app.messenger_post()
+
+    assert_equal(response.status, 200, "parameterized JSON Messenger status")
+    assert_equal(body, "ok", "parameterized JSON Messenger response")
+    assert_equal(requests.calls, [], "empty parameterized JSON event must not reply")
+
+
+def test_messenger_post_rejects_non_json_content_types_before_authentication():
+    for content_type in (None, "text/plain", "application/jsonp", "application/ld+json"):
+        app, request, response, requests = load_app()
+        request.headers = {"X-Hub-Signature-256": "sha256=invalid"}
+        if content_type is not None:
+            request.headers["Content-Type"] = content_type
+        request.json = {"object": "page", "entry": []}
+
+        body = app.messenger_post()
+
+        assert_equal(response.status, 415, "non-JSON Messenger status {0!r}".format(content_type))
+        assert_equal(body, "unsupported media type", "non-JSON Messenger response {0!r}".format(content_type))
+        assert_equal(requests.calls, [], "non-JSON Messenger payload must not reply")
 
 
 def test_messenger_verification_requires_matching_token():
@@ -722,6 +759,8 @@ def main():
         test_messenger_post_rejects_oversized_declared_body,
         test_messenger_post_rejects_oversized_streamed_body,
         test_messenger_post_rejects_invalid_signature,
+        test_messenger_post_accepts_json_content_type_parameters,
+        test_messenger_post_rejects_non_json_content_types_before_authentication,
         test_messenger_verification_requires_matching_token,
         test_messenger_verification_accepts_matching_token,
         test_messenger_post_ignores_non_message_events,
