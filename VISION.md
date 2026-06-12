@@ -26,6 +26,7 @@ Priority:
   by default
 - Keep outbound request timeout configuration bounded and non-crashing
 - Maintain the response filter and tests
+- Keep the dependency-free `make check` baseline running in GitHub Actions
 - Avoid expanding stereotype content without review
 
 Next priorities:

@@ -32,6 +32,7 @@ Helpful reports include:
 - Review found file, document, data, or media parsing flows; changes in those areas should receive security-focused review before merge.
 - Review found infrastructure, deployment, proxy, or cloud configuration; changes in those areas should receive security-focused review before merge.
 - Dependency manifests detected: requirements.txt. Dependency updates should preserve lockfiles when present and avoid introducing packages without a clear maintenance reason.
+- GitHub Actions runs the dependency-free `make check` baseline; review workflow, checker, and deployment-script changes as part of the supply-chain surface.
 
 ## Service and API Notes
 

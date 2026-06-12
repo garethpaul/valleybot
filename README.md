@@ -12,6 +12,7 @@ This README is based on the checked-in source, manifests, scripts, and repositor
 ## Repository Contents
 
 - `README.md` - project overview and local usage notes
+- `.github/workflows/check.yml` - GitHub Actions baseline for `make check`
 - `requirements.txt` - Python dependency or packaging metadata
 - `app.json`
 - `app.py`
@@ -60,6 +61,10 @@ The setup commands above are derived from repository files. Legacy mobile, Pytho
   generation.
 - `make check` runs `make verify` with bytecode cleanup before and after.
 - `python scripts/check_valleybot_contracts.py` runs just the webhook and token-handling contracts.
+- GitHub Actions runs `make check` on pushes and pull requests with Python
+  3.12, preserving the dependency-free contract baseline. Legacy Python 2
+  runtime tests remain optional and run only when their dependencies are
+  installed.
 - Completed maintenance plans live under `docs/plans` and are checked by
   `make check`.
 - `python -m unittest bot_tests` runs the legacy Python 2 test suite when its dependencies are installed.
@@ -108,6 +113,8 @@ When the required SDK or runtime is unavailable, use static checks and source re
   rejecting non-page Messenger webhook payloads before event parsing.
 - See `docs/plans/2026-06-09-valleybot-bot-log-privacy.md` for bot message and
   response log privacy coverage.
+- See `docs/plans/2026-06-10-ci-baseline.md` for the lightweight GitHub
+  Actions baseline.
 
 ## Contributing
 

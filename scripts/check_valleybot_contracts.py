@@ -41,6 +41,8 @@ BOT_LOGGING_PRIVACY_PLAN_PATH = (
 MESSENGER_OBJECT_PLAN_PATH = (
     ROOT / "docs" / "plans" / "2026-06-09-valleybot-messenger-object-guard.md"
 )
+CI_PLAN_PATH = ROOT / "docs" / "plans" / "2026-06-10-ci-baseline.md"
+CI_WORKFLOW_PATH = ROOT / ".github" / "workflows" / "check.yml"
 
 
 class FakeBottle:
@@ -198,6 +200,24 @@ def test_completed_plans_are_in_docs_plans():
     assert_completed_plan(MESSENGER_TEXT_PLAN_PATH, "Messenger text")
     assert_completed_plan(BOT_LOGGING_PRIVACY_PLAN_PATH, "bot logging privacy")
     assert_completed_plan(MESSENGER_OBJECT_PLAN_PATH, "Messenger object")
+    assert_completed_plan(CI_PLAN_PATH, "CI baseline")
+
+
+def test_ci_workflow_runs_make_check():
+    assert_true(CI_WORKFLOW_PATH.is_file(), "GitHub Actions check workflow must exist")
+    workflow = CI_WORKFLOW_PATH.read_text()
+    for fragment in (
+        "actions/checkout@v4",
+        "actions/setup-python@v5",
+        'python-version: "3.12"',
+        "make check",
+    ):
+        assert_true(fragment in workflow, "CI workflow must include {0}".format(fragment))
+
+    readme = (ROOT / "README.md").read_text()
+    assert_true("GitHub Actions" in readme, "README must document the GitHub Actions check")
+    gitignore = (ROOT / ".gitignore").read_text()
+    assert_true("!.github/workflows/check.yml" in gitignore, "workflow file must not be hidden by dotfile ignores")
 
 
 def test_messenger_verification_requires_matching_token():
@@ -565,6 +585,7 @@ def test_standalone_slack_handler_rejects_non_text_values():
 def main():
     tests = [
         test_completed_plans_are_in_docs_plans,
+        test_ci_workflow_runs_make_check,
         test_messenger_verification_requires_matching_token,
         test_messenger_verification_accepts_matching_token,
         test_messenger_post_ignores_non_message_events,

@@ -1,5 +1,12 @@
 # Changes
 
+## 2026-06-10
+
+- Added a lightweight GitHub Actions workflow that runs `make check` for the
+  dependency-free route and integration contract baseline.
+- Extended the contract checker to require the CI workflow and completed CI
+  plan.
+
 ## 2026-06-09
 
 - Rejected non-page Messenger webhook payloads before event parsing or reply
