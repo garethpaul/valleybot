@@ -2,10 +2,12 @@
 
 ## 2026-06-13
 
+- Processed up to 20 valid Messenger user messages per signed webhook in payload
+  order while preserving per-message replay claims and failure release.
 - Added a bounded, thread-safe recent Messenger message-ID cache to suppress
   duplicate replies from retried webhook deliveries.
 - Released replay claims after outbound exceptions and preserved messages without
-  usable IDs, debug payloads, echo filtering, and first-message semantics.
+  usable IDs, debug payloads, and echo filtering.
 - Made external-directory checks safe for repository paths containing spaces by
   selecting the repository with GNU Make's `-C` option.
 

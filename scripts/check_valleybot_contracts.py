@@ -64,6 +64,9 @@ MESSENGER_ECHO_PLAN_PATH = (
 MESSENGER_REPLAY_PLAN_PATH = (
     ROOT / "docs" / "plans" / "2026-06-13-messenger-message-replay-guard.md"
 )
+MESSENGER_BATCH_PLAN_PATH = (
+    ROOT / "docs" / "plans" / "2026-06-13-messenger-batch-processing-bound.md"
+)
 
 
 class FakeBottle:
@@ -236,6 +239,7 @@ def test_completed_plans_are_in_docs_plans():
     assert_completed_plan(MESSENGER_CONTENT_TYPE_PLAN_PATH, "Messenger JSON content type")
     assert_completed_plan(MESSENGER_ECHO_PLAN_PATH, "Messenger echo guard")
     assert_completed_plan(MESSENGER_REPLAY_PLAN_PATH, "Messenger replay guard")
+    assert_completed_plan(MESSENGER_BATCH_PLAN_PATH, "Messenger batch processing bound")
 
 
 def test_runtime_and_ci_contracts():
@@ -572,6 +576,126 @@ def messenger_payload(message_id="mid-1"):
     }
 
 
+def messenger_batch_payload(events, debug=False):
+    payload = {
+        "object": "page",
+        "entry": [{"messaging": events}],
+    }
+    if debug:
+        payload["debug"] = True
+    return payload
+
+
+def messenger_event(sender, text, message_id=None, is_echo=False):
+    message = {"text": text}
+    if message_id is not None:
+        message["mid"] = message_id
+    if is_echo:
+        message["is_echo"] = True
+    return {"sender": {"id": sender}, "message": message}
+
+
+def test_messenger_post_processes_valid_batch_in_payload_order():
+    app, request, _response, requests = load_app()
+    request.json = messenger_batch_payload([
+        messenger_event("user-1", "first", "mid-batch-1"),
+        messenger_event("page", "echo", "mid-echo", is_echo=True),
+        {"sender": ["malformed"], "message": {"text": "ignored"}},
+        {"sender": {"id": "ignored"}, "message": ["malformed"]},
+        messenger_event("user-2", "second", "mid-batch-2"),
+    ])
+
+    assert_equal(app.messenger_post(), "ok", "ordered Messenger batch response")
+    assert_equal(len(requests.calls), 2, "ordered Messenger batch reply count")
+    assert_equal(
+        [call[1]["json"]["recipient"]["id"] for call in requests.calls],
+        ["user-1", "user-2"],
+        "ordered Messenger batch recipients",
+    )
+
+
+def test_messenger_post_caps_valid_batch():
+    app, request, _response, requests = load_app()
+    request.json = messenger_batch_payload([
+        messenger_event(
+            "user-{0}".format(index),
+            "message-{0}".format(index),
+            "mid-cap-{0}".format(index),
+        )
+        for index in range(app.MAX_MESSENGER_MESSAGES_PER_WEBHOOK + 1)
+    ])
+
+    assert_equal(app.messenger_post(), "ok", "capped Messenger batch response")
+    assert_equal(
+        len(requests.calls),
+        app.MAX_MESSENGER_MESSAGES_PER_WEBHOOK,
+        "capped Messenger batch reply count",
+    )
+    assert_equal(
+        requests.calls[-1][1]["json"]["recipient"]["id"],
+        "user-19",
+        "capped Messenger batch final recipient",
+    )
+
+
+def test_messenger_post_applies_replay_claims_per_batch_message():
+    app, request, _response, requests = load_app()
+    request.json = messenger_batch_payload([
+        messenger_event("user-1", "first", "mid-same"),
+        messenger_event("user-2", "duplicate", "mid-same"),
+        messenger_event("user-3", "without id"),
+    ])
+
+    app.messenger_post()
+
+    assert_equal(len(requests.calls), 2, "batch replay and ID-less reply count")
+    assert_equal(
+        [call[1]["json"]["recipient"]["id"] for call in requests.calls],
+        ["user-1", "user-3"],
+        "batch replay and ID-less recipients",
+    )
+
+
+def test_messenger_post_debug_batch_suppresses_all_replies():
+    app, request, _response, requests = load_app()
+    request.json = messenger_batch_payload([
+        messenger_event("user-1", "first", "mid-debug-1"),
+        messenger_event("user-2", "second", "mid-debug-2"),
+    ], debug=True)
+
+    app.messenger_post()
+
+    assert_equal(requests.calls, [], "debug Messenger batch replies")
+
+
+def test_messenger_post_releases_only_failing_batch_claim():
+    app, request, _response, _requests = load_app()
+    request.json = messenger_batch_payload([
+        messenger_event("user-1", "first", "mid-success"),
+        messenger_event("user-2", "second", "mid-failure"),
+    ])
+
+    def fail_second(sender, _message):
+        if sender == "user-2":
+            raise RuntimeError("provider unavailable")
+
+    app.messenger_reply = fail_second
+    try:
+        app.messenger_post()
+        raise AssertionError("failed batch reply must propagate")
+    except RuntimeError:
+        pass
+
+    assert_true(
+        not app.recent_messenger_message_ids.claim("mid-success"),
+        "successful earlier batch claim must remain protected",
+    )
+    assert_true(
+        app.recent_messenger_message_ids.claim("mid-failure"),
+        "failing batch claim must be released",
+    )
+
+
 def test_messenger_post_suppresses_replayed_message_ids():
     app, request, _response, requests = load_app()
     request.json = messenger_payload("mid-replayed")
@@ -650,6 +774,50 @@ def test_messenger_replay_source_contracts():
     reply_position = source.index("messenger_reply(sender, message)")
     release_position = source.index("recent_messenger_message_ids.release(message_id)")
     assert_true(claim_position < reply_position < release_position, "claim, reply, and failure release must stay ordered")
+
+
+def test_messenger_batch_source_contracts():
+    source = (ROOT / "app.py").read_text(encoding="utf-8")
+    runtime_tests = (ROOT / "bot_tests.py").read_text(encoding="utf-8")
+    for contract in (
+            "MAX_MESSENGER_MESSAGES_PER_WEBHOOK = 20",
+            "messages = parse_messenger_messages(data)",
+            "for sender, message, message_id in messages:",
+            "if not isinstance(sender, dict) or not isinstance(message, dict):",
+            "messages.append((sender_id, message_text, message_id or None))",
+            "if len(messages) >= MAX_MESSENGER_MESSAGES_PER_WEBHOOK:",
+            "return messages"):
+        assert_true(contract in source, "missing Messenger batch contract {0}".format(contract))
+    assert_true(
+        "return sender_id, message_text, message_id or None" not in source,
+        "Messenger parser must not regress to first-message return semantics",
+    )
+    for test_name in (
+            "test_facebook_webhook_replies_to_valid_messages_in_order",
+            "test_facebook_webhook_caps_valid_message_batch"):
+        assert_true(test_name in runtime_tests, "missing Bottle/WebTest batch coverage {0}".format(test_name))
+
+    parse_position = source.index("messages = parse_messenger_messages(data)")
+    loop_position = source.index("for sender, message, message_id in messages:")
+    claim_position = source.index("recent_messenger_message_ids.claim(message_id)", loop_position)
+    reply_position = source.index("messenger_reply(sender, message)", loop_position)
+    release_position = source.index("recent_messenger_message_ids.release(message_id)", loop_position)
+    assert_true(
+        parse_position < loop_position < claim_position < reply_position < release_position,
+        "bounded extraction and per-message claim, reply, and release must stay ordered",
+    )
+
+    docs = {
+        "README.md": "Signed webhook batches process up to 20",
+        "SECURITY.md": "Each signed webhook processes at most 20",
+        "VISION.md": "Process Messenger message batches in order",
+        "CHANGES.md": "Processed up to 20 valid Messenger user messages",
+    }
+    for relative_path, phrase in docs.items():
+        assert_true(
+            phrase in (ROOT / relative_path).read_text(encoding="utf-8"),
+            "{0} must document bounded Messenger batches".format(relative_path),
+        )
 
 
 def test_messenger_reply_uses_header_auth_and_timeout():
@@ -924,12 +1092,18 @@ def main():
         test_messenger_post_trims_sender_and_message_text_before_reply,
         test_messenger_post_rejects_invalid_json_shape,
         test_messenger_post_rejects_non_page_object,
+        test_messenger_post_processes_valid_batch_in_payload_order,
+        test_messenger_post_caps_valid_batch,
+        test_messenger_post_applies_replay_claims_per_batch_message,
+        test_messenger_post_debug_batch_suppresses_all_replies,
+        test_messenger_post_releases_only_failing_batch_claim,
         test_messenger_post_suppresses_replayed_message_ids,
         test_messenger_post_preserves_messages_without_ids,
         test_recent_message_ids_evicts_oldest_claims_at_bound,
         test_messenger_post_releases_claim_when_reply_fails,
         test_messenger_post_ignores_malformed_message_ids_for_compatibility,
         test_messenger_replay_source_contracts,
+        test_messenger_batch_source_contracts,
         test_messenger_reply_uses_header_auth_and_timeout,
         test_request_timeout_accepts_positive_float_env,
         test_request_timeout_defaults_for_invalid_env,

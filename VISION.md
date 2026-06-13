@@ -26,6 +26,7 @@ Priority:
 - Reject blank or non-text Messenger messages before response generation
 - Suppress duplicate Messenger replies from retried message IDs with bounded
   process-local state
+- Process Messenger message batches in order with a fixed per-webhook cap
 - Reject empty web chat queries before response generation
 - Render web chat replies as text instead of concatenated HTML
 - Reject malformed low-level bot JSON requests before response generation

@@ -17,6 +17,7 @@ debug(os.environ.get("BOTTLE_DEBUG", "").strip().lower() == "true")
 app = Bottle()
 MAX_MESSENGER_WEBHOOK_BYTES = 1024 * 1024
 MAX_RECENT_MESSENGER_MESSAGE_IDS = 1024
+MAX_MESSENGER_MESSAGES_PER_WEBHOOK = 20
 
 
 class RecentMessageIds(object):
@@ -116,20 +117,21 @@ def messenger_post():
         response.status = 400
         return "invalid payload"
 
-    sender, message, message_id = parse_messenger_message(data)
-    if not (sender and message):
+    messages = parse_messenger_messages(data)
+    if not messages:
         return "ok"
 
     # send message to get bot
     if not data.get('debug'):
-        if message_id and not recent_messenger_message_ids.claim(message_id):
-            return "ok"
-        try:
-            messenger_reply(sender, message)
-        except Exception:
-            if message_id:
-                recent_messenger_message_ids.release(message_id)
-            raise
+        for sender, message, message_id in messages:
+            if message_id and not recent_messenger_message_ids.claim(message_id):
+                continue
+            try:
+                messenger_reply(sender, message)
+            except Exception:
+                if message_id:
+                    recent_messenger_message_ids.release(message_id)
+                raise
 
     # must send back response quickly
     return "ok"
@@ -194,14 +196,15 @@ def clean_text_value(value):
     return value or None
 
 
-def parse_messenger_message(data):
+def parse_messenger_messages(data):
     """
-    Return the first sender/text/message-ID tuple from a Messenger payload.
+    Return a bounded list of sender/text/message-ID tuples in payload order.
     """
     entries = data.get('entry')
     if not isinstance(entries, list):
-        return None, None, None
+        return []
 
+    messages = []
     for entry in entries:
         if not isinstance(entry, dict):
             continue
@@ -211,8 +214,10 @@ def parse_messenger_message(data):
         for event in events:
             if not isinstance(event, dict):
                 continue
-            sender = event.get('sender') or {}
-            message = event.get('message') or {}
+            sender = event.get('sender')
+            message = event.get('message')
+            if not isinstance(sender, dict) or not isinstance(message, dict):
+                continue
             if message.get('is_echo') is True:
                 continue
             sender_id = sender.get('id')
@@ -228,9 +233,11 @@ def parse_messenger_message(data):
             except AttributeError:
                 message_id = None
             if sender_id and message_text:
-                return sender_id, message_text, message_id or None
+                messages.append((sender_id, message_text, message_id or None))
+                if len(messages) >= MAX_MESSENGER_MESSAGES_PER_WEBHOOK:
+                    return messages
 
-    return None, None, None
+    return messages
 
 
 def messenger_reply(user_id, msg):

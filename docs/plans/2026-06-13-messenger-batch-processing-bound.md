@@ -6,7 +6,7 @@ date: 2026-06-13
 
 # Bound Messenger Batch Processing
 
-## Status: Planned
+## Status: Completed
 
 ## Context
 
@@ -66,16 +66,35 @@ pair ordered iteration with an explicit per-request maximum.
 
 ## Verification
 
-- Run focused dependency-free and Bottle/WebTest Messenger batch tests, then
-  local and external-working-directory `make check` under explicit timeouts.
-- Reject hostile mutations for first-message regression, removed cap, wrong
-  ordering, echo short-circuiting, shared replay handling, missing claim
-  release, weakened tests, documentation drift, and stale plan status.
-- Validate Python syntax, workflow YAML, dependency audit, intended paths,
-  generated artifacts, whitespace, conflict markers, and changed-line secret
-  patterns.
-- Use no live Messenger credentials or provider requests; outbound calls remain
-  replaced with deterministic fakes in validation.
+- Six focused dependency-free batch tests passed for ordered replies, the
+  per-webhook cap, replay suppression, ID-less compatibility, debug
+  suppression, and failing-claim isolation.
+- Two focused Bottle/WebTest batch tests passed in an isolated Python 3.12
+  environment after the documented corpus preparation.
+- The pre-completion dependency-free gate passed 48 tests and the full runtime
+  suite passed 27 tests.
+- Fifteen hostile mutations covering first-message regression, cap removal,
+  malformed nested event acceptance, echo acceptance, replay short-circuiting,
+  missing claim release, missing runtime tests, documentation drift, and stale
+  plan status were rejected.
+- `uv pip check` passed for all 18 installed packages. Pinned
+  `pip-audit==2.10.0` reported no known vulnerabilities in `requirements.txt`;
+  it explicitly skipped the pinned `webob==1.6.1.1070258` distribution because
+  that distribution was not found on public PyPI.
+- Final local and external-working-directory `make check` runs passed with the
+  same isolated pinned interpreter under explicit five-minute timeouts after
+  this completed-plan record was written.
+- No live Messenger credential or provider request was used; outbound calls
+  remained deterministic fakes.
+
+## Work Completed
+
+- Replaced first-message parsing with ordered extraction of up to 20 valid
+  sender/text/message-ID tuples across all entries and messaging arrays.
+- Applied replay claims, replies, and exception release independently for each
+  extracted message while preserving ID-less and debug compatibility.
+- Added dependency-free and Bottle/WebTest coverage for ordering, limits,
+  echoes, replayed IDs, ID-less messages, debug payloads, and failure isolation.
 
 ## Scope Boundaries
 

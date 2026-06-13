@@ -244,6 +244,58 @@ class TestFacebook(unittest.TestCase):
         self.assertEqual(r.status_int, 200)
         self.assertEqual(calls, [('user-2', 'real user message')])
 
+    def test_facebook_webhook_replies_to_valid_messages_in_order(self):
+        calls = []
+        original_reply = app.messenger_reply
+        app.messenger_reply = lambda sender, message: calls.append(
+            (sender, message))
+        data = {'object': 'page',
+                'entry': [
+                    {'messaging': [
+                        {'sender': {'id': 'user-1'},
+                         'message': {'text': 'first', 'mid': 'batch-runtime-1'}},
+                        {'sender': {'id': 'page'},
+                         'message': {'text': 'echo', 'is_echo': True}},
+                        {'sender': ['malformed'],
+                         'message': {'text': 'ignored'}},
+                    ]},
+                    {'messaging': [
+                        {'sender': {'id': 'ignored'},
+                         'message': ['malformed']},
+                        {'sender': {'id': 'user-2'},
+                         'message': {'text': 'second', 'mid': 'batch-runtime-2'}}
+                    ]}
+                ]}
+        try:
+            r = self.post_signed_json(data)
+        finally:
+            app.messenger_reply = original_reply
+
+        self.assertEqual(r.status_int, 200)
+        self.assertEqual(calls, [('user-1', 'first'), ('user-2', 'second')])
+
+    def test_facebook_webhook_caps_valid_message_batch(self):
+        calls = []
+        original_reply = app.messenger_reply
+        app.messenger_reply = lambda sender, message: calls.append(
+            (sender, message))
+        events = [
+            {'sender': {'id': 'user-{0}'.format(index)},
+             'message': {'text': 'message-{0}'.format(index),
+                         'mid': 'batch-cap-runtime-{0}'.format(index)}}
+            for index in range(app.MAX_MESSENGER_MESSAGES_PER_WEBHOOK + 1)
+        ]
+        try:
+            r = self.post_signed_json(
+                {'object': 'page', 'entry': [{'messaging': events}]})
+        finally:
+            app.messenger_reply = original_reply
+
+        self.assertEqual(r.status_int, 200)
+        self.assertEqual(len(calls), app.MAX_MESSENGER_MESSAGES_PER_WEBHOOK)
+        self.assertEqual(calls[0], ('user-0', 'message-0'))
+        self.assertEqual(calls[-1], ('user-19', 'message-19'))
+
     def test_facebook_webhook_rejects_invalid_signature(self):
         body = json.dumps(self.data).encode('utf-8')
         r = test_app.post(
