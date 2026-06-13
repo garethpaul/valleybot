@@ -179,6 +179,8 @@ def parse_messenger_message(data):
                 continue
             sender = event.get('sender') or {}
             message = event.get('message') or {}
+            if message.get('is_echo') is True:
+                continue
             sender_id = sender.get('id')
             message_text = message.get('text')
             try:

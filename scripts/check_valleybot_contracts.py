@@ -58,6 +58,9 @@ FILTER_FALLBACK_PLAN_PATH = (
 MESSENGER_CONTENT_TYPE_PLAN_PATH = (
     ROOT / "docs" / "plans" / "2026-06-12-messenger-json-content-type.md"
 )
+MESSENGER_ECHO_PLAN_PATH = (
+    ROOT / "docs" / "plans" / "2026-06-13-messenger-echo-guard.md"
+)
 
 
 class FakeBottle:
@@ -228,6 +231,7 @@ def test_completed_plans_are_in_docs_plans():
     assert_completed_plan(WEBHOOK_SIZE_PLAN_PATH, "Messenger webhook size limit")
     assert_completed_plan(FILTER_FALLBACK_PLAN_PATH, "filtered response fallback")
     assert_completed_plan(MESSENGER_CONTENT_TYPE_PLAN_PATH, "Messenger JSON content type")
+    assert_completed_plan(MESSENGER_ECHO_PLAN_PATH, "Messenger echo guard")
 
 
 def test_runtime_and_ci_contracts():
@@ -420,6 +424,57 @@ def test_messenger_post_ignores_non_message_events():
 
     assert_equal(body, "ok", "non-message event response")
     assert_equal(requests.calls, [], "non-message events must not call messenger reply")
+
+
+def test_messenger_post_ignores_echoes_and_continues_scanning():
+    app, request, response, requests = load_app()
+    request.json = {
+        "object": "page",
+        "entry": [{
+            "messaging": [
+                {
+                    "sender": {"id": "page-1"},
+                    "message": {"text": "page reply", "is_echo": True}
+                },
+                {
+                    "sender": {"id": "user-1"},
+                    "message": {"text": "hello from user"}
+                }
+            ]
+        }]
+    }
+    response.status = 200
+
+    body = app.messenger_post()
+
+    assert_equal(body, "ok", "Messenger echo event response")
+    assert_equal(len(requests.calls), 1, "only the user message should trigger a reply")
+    _url, kwargs = requests.calls[0]
+    assert_equal(kwargs["json"]["recipient"]["id"], "user-1", "post-echo sender")
+    assert_equal(
+        kwargs["json"]["message"]["text"],
+        "bot: hello from user",
+        "post-echo message",
+    )
+
+
+def test_messenger_post_requires_boolean_true_echo_flag():
+    app, request, response, requests = load_app()
+    request.json = {
+        "object": "page",
+        "entry": [{
+            "messaging": [{
+                "sender": {"id": "user-1"},
+                "message": {"text": "hello", "is_echo": "false"}
+            }]
+        }]
+    }
+    response.status = 200
+
+    body = app.messenger_post()
+
+    assert_equal(body, "ok", "non-boolean echo flag response")
+    assert_equal(len(requests.calls), 1, "non-boolean echo flag reply count")
 
 
 def test_messenger_post_ignores_non_text_or_blank_messages():
@@ -764,6 +819,8 @@ def main():
         test_messenger_verification_requires_matching_token,
         test_messenger_verification_accepts_matching_token,
         test_messenger_post_ignores_non_message_events,
+        test_messenger_post_ignores_echoes_and_continues_scanning,
+        test_messenger_post_requires_boolean_true_echo_flag,
         test_messenger_post_ignores_non_text_or_blank_messages,
         test_messenger_post_trims_sender_and_message_text_before_reply,
         test_messenger_post_rejects_invalid_json_shape,

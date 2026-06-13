@@ -206,6 +206,44 @@ class TestFacebook(unittest.TestCase):
         r = self.post_signed_json(data)
         self.assertEqual(r.status_int, 200)
 
+    def test_facebook_echo_message_is_ignored(self):
+        calls = []
+        original_reply = app.messenger_reply
+        app.messenger_reply = lambda sender, message: calls.append(
+            (sender, message))
+        data = {'object': 'page',
+                'entry': [{'messaging': [{
+                    'sender': {'id': self.user_id},
+                    'message': {'text': 'page reply', 'is_echo': True}
+                }]}]}
+        try:
+            r = self.post_signed_json(data)
+        finally:
+            app.messenger_reply = original_reply
+
+        self.assertEqual(r.status_int, 200)
+        self.assertEqual(calls, [])
+
+    def test_facebook_echo_does_not_hide_later_user_message(self):
+        calls = []
+        original_reply = app.messenger_reply
+        app.messenger_reply = lambda sender, message: calls.append(
+            (sender, message))
+        data = {'object': 'page',
+                'entry': [{'messaging': [
+                    {'sender': {'id': self.user_id},
+                     'message': {'text': 'page reply', 'is_echo': True}},
+                    {'sender': {'id': 'user-2'},
+                     'message': {'text': 'real user message'}}
+                ]}]}
+        try:
+            r = self.post_signed_json(data)
+        finally:
+            app.messenger_reply = original_reply
+
+        self.assertEqual(r.status_int, 200)
+        self.assertEqual(calls, [('user-2', 'real user message')])
+
     def test_facebook_webhook_rejects_invalid_signature(self):
         body = json.dumps(self.data).encode('utf-8')
         r = test_app.post(

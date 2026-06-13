@@ -135,6 +135,8 @@ When the required SDK or runtime is unavailable, use static checks and source re
   moderation fallback and runtime regression coverage.
 - See `docs/plans/2026-06-12-messenger-json-content-type.md` for the exact JSON
   media-type requirement on signed Messenger webhook requests.
+- See `docs/plans/2026-06-13-messenger-echo-guard.md` for ignoring page echo
+  messages without hiding later user messages in the same webhook payload.
 
 ## Contributing
 
