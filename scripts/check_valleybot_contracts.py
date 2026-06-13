@@ -61,6 +61,9 @@ MESSENGER_CONTENT_TYPE_PLAN_PATH = (
 MESSENGER_ECHO_PLAN_PATH = (
     ROOT / "docs" / "plans" / "2026-06-13-messenger-echo-guard.md"
 )
+MESSENGER_REPLAY_PLAN_PATH = (
+    ROOT / "docs" / "plans" / "2026-06-13-messenger-message-replay-guard.md"
+)
 
 
 class FakeBottle:
@@ -232,6 +235,7 @@ def test_completed_plans_are_in_docs_plans():
     assert_completed_plan(FILTER_FALLBACK_PLAN_PATH, "filtered response fallback")
     assert_completed_plan(MESSENGER_CONTENT_TYPE_PLAN_PATH, "Messenger JSON content type")
     assert_completed_plan(MESSENGER_ECHO_PLAN_PATH, "Messenger echo guard")
+    assert_completed_plan(MESSENGER_REPLAY_PLAN_PATH, "Messenger replay guard")
 
 
 def test_runtime_and_ci_contracts():
@@ -262,7 +266,7 @@ def test_runtime_and_ci_contracts():
             "persist-credentials: false",
             "python -m pip install -r requirements.txt",
             "make check PYTHON=python",
-            'make -f "$GITHUB_WORKSPACE/Makefile" check PYTHON=python'):
+            'make -C "$GITHUB_WORKSPACE" check PYTHON=python'):
         assert_true(contract in workflow, "missing CI contract {0}".format(contract))
     assert_true("@v" not in workflow, "CI actions must use immutable commits")
     assert_true("ubuntu-latest" not in workflow, "CI must not use a floating Ubuntu runner")
@@ -301,10 +305,10 @@ def test_runtime_and_ci_contracts():
         assert_true(security_contract in security, "SECURITY.md must document {0}".format(security_contract))
 
     makefile = (ROOT / "Makefile").read_text(encoding="utf-8")
-    assert_true("ROOT := $(abspath $(dir $(lastword $(MAKEFILE_LIST))))" in makefile, "Makefile must resolve the repository root")
+    assert_true("ROOT := $(CURDIR)" in makefile, "Makefile must use make's selected working directory as the repository root")
     assert_true('find "$(ROOT)"' in makefile, "Makefile cleanup must stay inside the repository")
     assert_true('"$(ROOT)/scripts/check_valleybot_contracts.py"' in makefile, "Makefile must use the rooted contract path")
-    assert_true('$(MAKE) -f "$(ROOT)/Makefile" clean' in makefile, "recursive cleanup must use the repository Makefile")
+    assert_true('$(MAKE) -C "$(ROOT)" clean' in makefile, "recursive cleanup must select the repository directory")
 
     app_source = (ROOT / "app.py").read_text(encoding="utf-8")
     runtime_tests = (ROOT / "bot_tests.py").read_text(encoding="utf-8")
@@ -551,6 +555,101 @@ def test_messenger_post_rejects_non_page_object():
     assert_equal(response.status, 400, "non-page Messenger object status")
     assert_true(body != "ok", "non-page Messenger objects must not be acknowledged as valid")
     assert_equal(requests.calls, [], "non-page Messenger objects must not call messenger reply")
+
+
+def messenger_payload(message_id="mid-1"):
+    message = {"text": "hello from messenger"}
+    if message_id is not None:
+        message["mid"] = message_id
+    return {
+        "object": "page",
+        "entry": [{
+            "messaging": [{
+                "sender": {"id": "user-1"},
+                "message": message,
+            }]
+        }]
+    }
+
+
+def test_messenger_post_suppresses_replayed_message_ids():
+    app, request, _response, requests = load_app()
+    request.json = messenger_payload("mid-replayed")
+
+    assert_equal(app.messenger_post(), "ok", "first Messenger delivery")
+    assert_equal(app.messenger_post(), "ok", "replayed Messenger delivery")
+
+    assert_equal(len(requests.calls), 1, "replayed message ID must send one reply")
+
+
+def test_messenger_post_preserves_messages_without_ids():
+    app, request, _response, requests = load_app()
+    request.json = messenger_payload(None)
+
+    app.messenger_post()
+    app.messenger_post()
+
+    assert_equal(len(requests.calls), 2, "messages without IDs must preserve compatibility")
+
+
+def test_recent_message_ids_evicts_oldest_claims_at_bound():
+    app, _request, _response, _requests = load_app()
+    recent = app.RecentMessageIds(2)
+
+    assert_true(recent.claim("mid-1"), "first replay claim")
+    assert_true(recent.claim("mid-2"), "second replay claim")
+    assert_true(recent.claim("mid-3"), "third replay claim")
+    assert_true(not recent.claim("mid-3"), "newest replay claim must remain protected")
+    assert_true(recent.claim("mid-1"), "oldest replay claim must be evicted")
+
+
+def test_messenger_post_releases_claim_when_reply_fails():
+    app, request, _response, _requests = load_app()
+    request.json = messenger_payload("mid-retry")
+    reply_calls = []
+
+    def failing_reply(sender, message):
+        reply_calls.append((sender, message))
+        raise RuntimeError("provider unavailable")
+
+    app.messenger_reply = failing_reply
+    try:
+        app.messenger_post()
+        raise AssertionError("failed Messenger replies must propagate")
+    except RuntimeError:
+        pass
+
+    app.messenger_reply = lambda sender, message: reply_calls.append((sender, message))
+    assert_equal(app.messenger_post(), "ok", "retry after Messenger reply failure")
+    assert_equal(len(reply_calls), 2, "failed claim must be released for retry")
+
+
+def test_messenger_post_ignores_malformed_message_ids_for_compatibility():
+    app, request, _response, requests = load_app()
+    request.json = messenger_payload({"not": "text"})
+
+    app.messenger_post()
+    app.messenger_post()
+
+    assert_equal(len(requests.calls), 2, "malformed IDs must not suppress valid text messages")
+
+
+def test_messenger_replay_source_contracts():
+    source = (ROOT / "app.py").read_text(encoding="utf-8")
+    for contract in (
+            "MAX_RECENT_MESSENGER_MESSAGE_IDS = 1024",
+            "class RecentMessageIds(object):",
+            "self._lock = threading.Lock()",
+            "self._ids.popitem(last=False)",
+            "message_id = message.get('mid')",
+            "recent_messenger_message_ids.claim(message_id)",
+            "recent_messenger_message_ids.release(message_id)"):
+        assert_true(contract in source, "missing Messenger replay contract {0}".format(contract))
+
+    claim_position = source.index("recent_messenger_message_ids.claim(message_id)")
+    reply_position = source.index("messenger_reply(sender, message)")
+    release_position = source.index("recent_messenger_message_ids.release(message_id)")
+    assert_true(claim_position < reply_position < release_position, "claim, reply, and failure release must stay ordered")
 
 
 def test_messenger_reply_uses_header_auth_and_timeout():
@@ -825,6 +924,12 @@ def main():
         test_messenger_post_trims_sender_and_message_text_before_reply,
         test_messenger_post_rejects_invalid_json_shape,
         test_messenger_post_rejects_non_page_object,
+        test_messenger_post_suppresses_replayed_message_ids,
+        test_messenger_post_preserves_messages_without_ids,
+        test_recent_message_ids_evicts_oldest_claims_at_bound,
+        test_messenger_post_releases_claim_when_reply_fails,
+        test_messenger_post_ignores_malformed_message_ids_for_compatibility,
+        test_messenger_replay_source_contracts,
         test_messenger_reply_uses_header_auth_and_timeout,
         test_request_timeout_accepts_positive_float_env,
         test_request_timeout_defaults_for_invalid_env,

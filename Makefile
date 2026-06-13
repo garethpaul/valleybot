@@ -1,5 +1,5 @@
 PYTHON ?= python3
-ROOT := $(abspath $(dir $(lastword $(MAKEFILE_LIST))))
+ROOT := $(CURDIR)
 
 PYTHON_FILES := \
 	app.py \
@@ -13,7 +13,7 @@ PYTHON_FILES := \
 .PHONY: clean lint prepare-corpora test build verify check
 
 check: clean verify
-	$(MAKE) -f "$(ROOT)/Makefile" clean
+	$(MAKE) -C "$(ROOT)" clean
 
 clean:
 	find "$(ROOT)" -type f \( -name '*.pyc' -o -name '*.pyo' \) -delete

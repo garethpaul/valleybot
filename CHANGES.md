@@ -1,5 +1,14 @@
 # Changes
 
+## 2026-06-13
+
+- Added a bounded, thread-safe recent Messenger message-ID cache to suppress
+  duplicate replies from retried webhook deliveries.
+- Released replay claims after outbound exceptions and preserved messages without
+  usable IDs, debug payloads, echo filtering, and first-message semantics.
+- Made external-directory checks safe for repository paths containing spaces by
+  selecting the repository with GNU Make's `-C` option.
+
 ## 2026-06-12
 
 - Required an exact `application/json` media type for Messenger POST webhooks,

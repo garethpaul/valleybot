@@ -1,7 +1,9 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 from sys import argv
+from collections import OrderedDict
 import os
+import threading
 from bottle import Bottle, template, request, response, debug
 import bot
 import hmac
@@ -14,6 +16,31 @@ debug(os.environ.get("BOTTLE_DEBUG", "").strip().lower() == "true")
 
 app = Bottle()
 MAX_MESSENGER_WEBHOOK_BYTES = 1024 * 1024
+MAX_RECENT_MESSENGER_MESSAGE_IDS = 1024
+
+
+class RecentMessageIds(object):
+    def __init__(self, max_entries):
+        self.max_entries = max_entries
+        self._ids = OrderedDict()
+        self._lock = threading.Lock()
+
+    def claim(self, message_id):
+        with self._lock:
+            if message_id in self._ids:
+                return False
+            self._ids[message_id] = None
+            while len(self._ids) > self.max_entries:
+                self._ids.popitem(last=False)
+            return True
+
+    def release(self, message_id):
+        with self._lock:
+            self._ids.pop(message_id, None)
+
+
+recent_messenger_message_ids = RecentMessageIds(
+    MAX_RECENT_MESSENGER_MESSAGE_IDS)
 
 
 # SLACK INTEGRATION
@@ -89,13 +116,20 @@ def messenger_post():
         response.status = 400
         return "invalid payload"
 
-    sender, message = parse_messenger_message(data)
+    sender, message, message_id = parse_messenger_message(data)
     if not (sender and message):
         return "ok"
 
     # send message to get bot
     if not data.get('debug'):
-        messenger_reply(sender, message)
+        if message_id and not recent_messenger_message_ids.claim(message_id):
+            return "ok"
+        try:
+            messenger_reply(sender, message)
+        except Exception:
+            if message_id:
+                recent_messenger_message_ids.release(message_id)
+            raise
 
     # must send back response quickly
     return "ok"
@@ -162,11 +196,11 @@ def clean_text_value(value):
 
 def parse_messenger_message(data):
     """
-    Return the first sender/text pair from a Messenger payload if present.
+    Return the first sender/text/message-ID tuple from a Messenger payload.
     """
     entries = data.get('entry')
     if not isinstance(entries, list):
-        return None, None
+        return None, None, None
 
     for entry in entries:
         if not isinstance(entry, dict):
@@ -183,15 +217,20 @@ def parse_messenger_message(data):
                 continue
             sender_id = sender.get('id')
             message_text = message.get('text')
+            message_id = message.get('mid')
             try:
                 sender_id = sender_id.strip()
                 message_text = message_text.strip()
             except AttributeError:
                 continue
+            try:
+                message_id = message_id.strip()
+            except AttributeError:
+                message_id = None
             if sender_id and message_text:
-                return sender_id, message_text
+                return sender_id, message_text, message_id or None
 
-    return None, None
+    return None, None, None
 
 
 def messenger_reply(user_id, msg):

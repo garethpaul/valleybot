@@ -24,6 +24,8 @@ Priority:
 - Reject blank or non-text channel commands before response generation
 - Reject non-page Messenger webhook payloads before event parsing
 - Reject blank or non-text Messenger messages before response generation
+- Suppress duplicate Messenger replies from retried message IDs with bounded
+  process-local state
 - Reject empty web chat queries before response generation
 - Render web chat replies as text instead of concatenated HTML
 - Reject malformed low-level bot JSON requests before response generation

@@ -44,6 +44,10 @@ verification, JSON parsing, response generation, or outbound API calls.
 Messenger POST requests must use the `application/json` media type; optional
 parameters and case differences are accepted, while other types return 415
 before signature verification or JSON parsing.
+Recent non-empty Messenger message IDs are claimed before outbound replies in a
+bounded process-local cache. Duplicate deliveries are acknowledged without a
+second reply, and outbound exceptions release their claim. This protection
+does not span multiple workers or process restarts.
 
 For web services, APIs, sockets, or scraping workflows, prioritize reports involving authentication bypass, authorization errors, injection, server-side request forgery, unsafe deserialization, credential leakage, data exposure, or denial-of-service conditions. Use test accounts and minimal proof-of-concept traffic only.
 

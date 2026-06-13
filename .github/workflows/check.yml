@@ -36,4 +36,4 @@ jobs:
       - name: Run repository checks
         run: make check PYTHON=python
       - name: Verify external working directory
-        run: cd "$(mktemp -d)" && make -f "$GITHUB_WORKSPACE/Makefile" check PYTHON=python
+        run: cd "$(mktemp -d)" && make -C "$GITHUB_WORKSPACE" check PYTHON=python

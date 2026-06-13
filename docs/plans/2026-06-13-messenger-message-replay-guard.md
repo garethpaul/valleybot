@@ -1,6 +1,6 @@
 # Messenger Message Replay Guard
 
-## Status: In Progress
+## Status: Completed
 
 ## Context
 
@@ -24,18 +24,25 @@ bot response and repeat downstream work.
   eviction, failure release, malformed IDs, and no-ID compatibility.
 - R7. Document that process-local replay protection is not shared across
   workers or restarts.
+- R8. Keep the complete gate runnable from external working directories when
+  the repository path contains spaces.
 
 ## Scope Boundaries
 
 - Do not add persistence, a distributed cache, dependencies, background jobs,
   or multi-message batch replies.
 - Do not perform a live Messenger webhook or credentialed Graph API request.
+- The Makefile and CI workflow may change only as needed to preserve the
+  existing external-directory contract for paths containing spaces.
 
 ## Verification
 
-- Focused replay tests and full `make check`
-- External-directory and space-containing-path `make check`
-- Hostile mutations for ID parsing, claim ordering, duplicate suppression,
-  bounded eviction, failure release, and plan status
+- Six focused replay tests passed for suppression, no-ID and malformed-ID
+  compatibility, bounded eviction, exception release, and source ordering.
+- Full local, external-directory, and space-containing-path `make check` runs
+  cover dependency-free contracts and the Bottle/WebTest runtime suite.
+- Nine hostile mutations were rejected for ID parsing, duplicate suppression,
+  bounded eviction, cache locking, exception release, plan status, root
+  selection, external CI invocation, and recursive cleanup.
 - Python syntax, workflow YAML, `git diff --check`, generated-artifact, and
-  focused secret review
+  focused secret reviews are included in final validation.
