@@ -100,6 +100,10 @@ When the required SDK or runtime is unavailable, use static checks and source re
 
 ## Security and Privacy Notes
 
+- See `MODERATION.md` for the mandatory human review checklist covering
+  response templates, blocked terms, fallbacks, regression fixtures, channel
+  consistency, private-data exclusions, and review evidence.
+
 - Review changes touching authentication or token handling; examples from the scan include nltk_data/corpora/movie_reviews/neg/cv000_29416.txt, nltk_data/corpora/movie_reviews/neg/cv067_21192.txt, nltk_data/corpora/movie_reviews/neg/cv074_7188.txt, nltk_data/corpora/movie_reviews/neg/cv144_5010.txt, and 3 more.
 - Review changes touching network requests, sockets, or service endpoints; examples from the scan include app.json, app.py, docs/bugs/p2-python-http-call-without-timeout-a07c6a4bb0ee865f.md, nltk_data/corpora/conll2000/test.txt, and 5 more.
 - Review changes touching file, media, JSON, XML, CSV, OCR, or data parsing; examples from the scan include app.json, app.py, bot.py, bot_tests.py, and 6 more.
@@ -140,6 +144,8 @@ When the required SDK or runtime is unavailable, use static checks and source re
   unauthenticated request-body limit.
 - See `docs/plans/2026-06-10-filtered-response-fallback.md` for the completed
   moderation fallback and runtime regression coverage.
+- See `docs/plans/2026-06-14-moderation-review-guide.md` for the human content
+  review and evidence contract.
 - See `docs/plans/2026-06-12-messenger-json-content-type.md` for the exact JSON
   media-type requirement on signed Messenger webhook requests.
 - See `docs/plans/2026-06-13-messenger-echo-guard.md` for ignoring page echo

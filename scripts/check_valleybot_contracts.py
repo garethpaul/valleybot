@@ -70,6 +70,9 @@ MESSENGER_BATCH_PLAN_PATH = (
 MAKE_ROOT_PROTECTION_PLAN_PATH = (
     ROOT / "docs" / "plans" / "2026-06-14-make-root-override-protection.md"
 )
+MODERATION_REVIEW_PLAN_PATH = (
+    ROOT / "docs" / "plans" / "2026-06-14-moderation-review-guide.md"
+)
 
 
 class FakeBottle:
@@ -244,6 +247,7 @@ def test_completed_plans_are_in_docs_plans():
     assert_completed_plan(MESSENGER_REPLAY_PLAN_PATH, "Messenger replay guard")
     assert_completed_plan(MESSENGER_BATCH_PLAN_PATH, "Messenger batch processing bound")
     assert_completed_plan(MAKE_ROOT_PROTECTION_PLAN_PATH, "Make root override protection")
+    assert_completed_plan(MODERATION_REVIEW_PLAN_PATH, "moderation review guide")
 
 
 def test_runtime_and_ci_contracts():
@@ -981,6 +985,30 @@ def test_filtered_responses_use_reviewed_fallback():
     assert_true("testAcceptableResponsePassesThroughFilter" in runtime_tests, "runtime tests must cover accepted response passthrough")
 
 
+def test_moderation_review_guide_is_auditable():
+    guide = (ROOT / "MODERATION.md").read_text(encoding="utf-8")
+    readme = (ROOT / "README.md").read_text(encoding="utf-8")
+    vision = (ROOT / "VISION.md").read_text(encoding="utf-8")
+    changes = (ROOT / "CHANGES.md").read_text(encoding="utf-8")
+
+    for phrase in (
+            "human content review",
+            "not a complete moderation system",
+            "protected-class stereotypes",
+            "record the rationale",
+            "reviewed value from `config.NONE_RESPONSES`",
+            "accepted-boundary and rejected-boundary regression fixtures",
+            "web, Slack, Messenger, terminal",
+            "Never add real conversation transcripts",
+            "reviewer, review date, changed content scope",
+            "unresolved harmful-content concerns block merge"):
+        assert_true(phrase in guide, "moderation guide must include {0}".format(phrase))
+    assert_true("See `MODERATION.md`" in readme, "README must link the moderation guide")
+    assert_true("docs/plans/2026-06-14-moderation-review-guide.md" in readme, "README must link the moderation plan")
+    assert_true("Require auditable human review" in vision, "VISION must preserve moderation review")
+    assert_true("mandatory human moderation checklist" in changes, "CHANGES must record moderation guide")
+
+
 def test_slack_command_requires_matching_token():
     app, request, response, _requests = load_app()
 
@@ -1121,6 +1149,7 @@ def main():
         test_web_template_escapes_chat_strings,
         test_bot_logging_avoids_private_message_text,
         test_filtered_responses_use_reviewed_fallback,
+        test_moderation_review_guide_is_auditable,
         test_slack_command_requires_matching_token,
         test_slack_command_accepts_matching_token,
         test_slack_command_rejects_blank_text,

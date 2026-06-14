@@ -1,6 +1,6 @@
 # Moderation And Content Review Guide
 
-## Status: Planned
+## Status: Completed
 
 ## Context
 
@@ -34,11 +34,13 @@ terminal entry points.
 
 ## Verification
 
-- focused moderation-guide and filter/fallback contracts
-- repository and external-directory `make check`
-- hostile review-scope, harmful-category, rationale, fallback, fixture,
-  privacy, evidence, roadmap, suite, and plan-status mutations
-- final artifact, credential, exact-diff, and hosted verification audits
+- Focused moderation-guide and filter/fallback contracts passed.
+- The repository and external-directory `make check` passed.
+- Ten hostile moderation-guide mutations were rejected across review scope,
+  harmful categories, rationale, fallback, fixtures, channels, privacy,
+  reviewer evidence, roadmap, and plan-status contracts.
+- Final artifact, credential, and exact-diff audits passed. Hosted verification
+  is recorded against the exact pull-request head after push.
 
 ## Scope Boundary
 

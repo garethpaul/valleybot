@@ -1,5 +1,11 @@
 # Changes
 
+## 2026-06-14
+
+- Added a mandatory human moderation checklist for response templates, blocked
+  terms, reviewed fallbacks, regression boundaries, channel consistency,
+  synthetic fixtures, reviewer evidence, and unresolved concerns.
+
 ## 2026-06-13
 
 - Processed up to 20 valid Messenger user messages per signed webhook in payload

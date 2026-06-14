@@ -37,10 +37,11 @@ Priority:
 - Keep the dependency-free `make check` baseline running in GitHub Actions
 - Return reviewed fallback text when a generated response fails moderation
 - Avoid expanding stereotype content without review
+- Require auditable human review of response templates, blocked terms,
+  fallbacks, fixtures, channel consistency, privacy, and unresolved concerns
 
 Next priorities:
 
-- Add clearer moderation and content-review guidance
 - Document Python version and NLTK/TextBlob setup
 - Separate deployment packaging from bot behavior changes
 
