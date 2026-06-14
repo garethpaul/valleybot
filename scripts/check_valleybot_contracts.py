@@ -73,6 +73,9 @@ MAKE_ROOT_PROTECTION_PLAN_PATH = (
 MODERATION_REVIEW_PLAN_PATH = (
     ROOT / "docs" / "plans" / "2026-06-14-moderation-review-guide.md"
 )
+CODEQL_ANALYSIS_PLAN_PATH = (
+    ROOT / "docs" / "plans" / "2026-06-14-codeql-analysis.md"
+)
 
 
 class FakeBottle:
@@ -248,6 +251,7 @@ def test_completed_plans_are_in_docs_plans():
     assert_completed_plan(MESSENGER_BATCH_PLAN_PATH, "Messenger batch processing bound")
     assert_completed_plan(MAKE_ROOT_PROTECTION_PLAN_PATH, "Make root override protection")
     assert_completed_plan(MODERATION_REVIEW_PLAN_PATH, "moderation review guide")
+    assert_completed_plan(CODEQL_ANALYSIS_PLAN_PATH, "CodeQL analysis")
 
 
 def test_runtime_and_ci_contracts():
@@ -275,6 +279,13 @@ def test_runtime_and_ci_contracts():
             'python-version: ["3.10", "3.12", "3.14"]',
             "actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10",
             "actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405",
+            "name: CodeQL (${{ matrix.language }})",
+            "security-events: write",
+            "language: [actions, python]",
+            "github/codeql-action/init@8aad20d150bbac5944a9f9d289da16a4b0d87c1e",
+            "languages: ${{ matrix.language }}",
+            "build-mode: none",
+            "github/codeql-action/analyze@8aad20d150bbac5944a9f9d289da16a4b0d87c1e",
             "persist-credentials: false",
             "python -m pip install -r requirements.txt",
             "make check PYTHON=python",
@@ -286,8 +297,9 @@ def test_runtime_and_ci_contracts():
     assert_true("branches:" not in workflow, "CI push checks must cover every branch")
     assert_true("# v6.0.3" in workflow, "checkout pin annotation must identify the exact release")
     assert_true("# v6.2.0" in workflow, "setup-python pin annotation must identify the exact release")
-    assert_equal(workflow.count("persist-credentials:"), 1, "checkout credential setting count")
+    assert_equal(workflow.count("persist-credentials:"), 2, "checkout credential setting count")
     assert_true("persist-credentials: true" not in workflow, "checkout credentials must not persist")
+    assert_equal(workflow.count("security-events: write"), 1, "CodeQL upload permission count")
 
     action_uses = []
     for line in workflow.splitlines():
@@ -296,25 +308,46 @@ def test_runtime_and_ci_contracts():
             action_line = action_line[2:]
         if action_line.startswith("uses: "):
             action_uses.append(action_line)
-    assert_equal(len(action_uses), 2, "CI action count")
+    assert_equal(len(action_uses), 5, "CI action count")
     assert_equal(
         set(action_uses),
         {
             "uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3",
             "uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6.2.0",
+            "uses: github/codeql-action/init@8aad20d150bbac5944a9f9d289da16a4b0d87c1e # v4",
+            "uses: github/codeql-action/analyze@8aad20d150bbac5944a9f9d289da16a4b0d87c1e # v4",
         },
         "CI action allowlist",
+    )
+    assert_equal(
+        action_uses.count(
+            "uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3"
+        ),
+        2,
+        "credential-free checkout job count",
     )
     workflow_files = list((ROOT / ".github" / "workflows").glob("*.y*ml"))
     assert_equal(workflow_files, [CI_WORKFLOW_PATH], "CI workflow file set")
 
     readme = (ROOT / "README.md").read_text(encoding="utf-8")
     assert_true("GitHub Actions" in readme, "README must document the GitHub Actions check")
+    assert_true("Actions and Python" in readme, "README must document CodeQL languages")
+    assert_true("security-events: write" in readme, "README must document scoped CodeQL upload permission")
     gitignore = (ROOT / ".gitignore").read_text(encoding="utf-8")
     assert_true("!.github/workflows/check.yml" in gitignore, "workflow file must not be hidden by dotfile ignores")
     security = (ROOT / "SECURITY.md").read_text(encoding="utf-8")
     for security_contract in ("X-Hub-Signature-256", "MESSENGER_APP_SECRET", "1 MiB"):
         assert_true(security_contract in security, "SECURITY.md must document {0}".format(security_contract))
+    assert_true("CodeQL analyzes GitHub Actions and Python" in security, "SECURITY.md must document CodeQL coverage")
+    vision = (ROOT / "VISION.md").read_text(encoding="utf-8")
+    assert_true("Keep pinned CodeQL coverage" in vision, "VISION.md must preserve CodeQL coverage")
+    changes = (ROOT / "CHANGES.md").read_text(encoding="utf-8")
+    assert_true("least-privilege CodeQL analysis" in changes, "CHANGES.md must record CodeQL analysis")
+    codeql_plan = CODEQL_ANALYSIS_PLAN_PATH.read_text(encoding="utf-8")
+    for plan_contract in (
+            "The repository and external-directory `make check` passed.",
+            "Four hostile CodeQL workflow mutations were rejected"):
+        assert_true(plan_contract in codeql_plan, "CodeQL plan must record {0}".format(plan_contract))
 
     makefile = (ROOT / "Makefile").read_text(encoding="utf-8")
     makefile_lines = set(makefile.splitlines())

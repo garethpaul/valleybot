@@ -35,6 +35,8 @@ Priority:
 - Keep outbound request timeout configuration bounded and non-crashing
 - Maintain the response filter and tests
 - Keep the dependency-free `make check` baseline running in GitHub Actions
+- Keep pinned CodeQL coverage for GitHub Actions and Python with job-scoped
+  upload permission
 - Return reviewed fallback text when a generated response fails moderation
 - Avoid expanding stereotype content without review
 - Require auditable human review of response templates, blocked terms,

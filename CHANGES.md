@@ -2,6 +2,8 @@
 
 ## 2026-06-14
 
+- Added pinned, least-privilege CodeQL analysis for GitHub Actions and Python
+  to every hosted push and pull request.
 - Added a mandatory human moderation checklist for response templates, blocked
   terms, reviewed fallbacks, regression boundaries, channel consistency,
   synthetic fixtures, reviewer evidence, and unresolved concerns.

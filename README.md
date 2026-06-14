@@ -77,6 +77,9 @@ The setup commands above are derived from repository files. Legacy mobile, Pytho
   3.10, 3.12, and 3.14 on Ubuntu 24.04 with read-only permissions, immutable
   action pins, credential-free checkout, cancellation for superseded runs, and
   verification from outside the repository directory.
+- A separate pinned CodeQL job analyzes GitHub Actions and Python. Global
+  permissions remain read-only; only that job receives the
+  `security-events: write` permission needed to upload results.
 - Completed maintenance plans live under `docs/plans` and are checked by
   `make check`.
 - See `docs/plans/2026-06-13-messenger-message-replay-guard.md` for the bounded
@@ -146,6 +149,8 @@ When the required SDK or runtime is unavailable, use static checks and source re
   moderation fallback and runtime regression coverage.
 - See `docs/plans/2026-06-14-moderation-review-guide.md` for the human content
   review and evidence contract.
+- See `docs/plans/2026-06-14-codeql-analysis.md` for the pinned,
+  least-privilege code-scanning contract.
 - See `docs/plans/2026-06-12-messenger-json-content-type.md` for the exact JSON
   media-type requirement on signed Messenger webhook requests.
 - See `docs/plans/2026-06-13-messenger-echo-guard.md` for ignoring page echo

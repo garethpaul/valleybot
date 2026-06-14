@@ -33,6 +33,8 @@ Helpful reports include:
 - Review found infrastructure, deployment, proxy, or cloud configuration; changes in those areas should receive security-focused review before merge.
 - Dependency manifests detected: requirements.txt. Dependency updates should preserve lockfiles when present and avoid introducing packages without a clear maintenance reason.
 - GitHub Actions runs the dependency-free `make check` baseline; review workflow, checker, and deployment-script changes as part of the supply-chain surface.
+- CodeQL analyzes GitHub Actions and Python with immutable action pins and an
+  upload permission scoped to the analysis job.
 
 ## Service and API Notes
 
