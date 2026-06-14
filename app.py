@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 from sys import argv
 from collections import OrderedDict
+from html import escape
 import os
 import threading
 from bottle import Bottle, template, request, response, debug
@@ -78,7 +79,7 @@ def messenger_webhook():
     if not challenge:
         response.status = 400
         return "missing challenge"
-    return challenge
+    return escape(challenge, quote=True)
 
 
 @app.post('/messenger/webhook')

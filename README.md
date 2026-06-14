@@ -100,6 +100,8 @@ When the required SDK or runtime is unavailable, use static checks and source re
 - `REQUEST_TIMEOUT` optionally overrides outbound Messenger request timeout
   seconds; invalid, non-finite, or non-positive values fall back to `5.0`.
 - Messenger webhook request bodies are limited to 1 MiB.
+- Verified Messenger GET challenges are HTML-escaped before response delivery,
+  so hostile markup cannot become reflected page content.
 
 ## Security and Privacy Notes
 
@@ -151,6 +153,8 @@ When the required SDK or runtime is unavailable, use static checks and source re
   review and evidence contract.
 - See `docs/plans/2026-06-14-codeql-analysis.md` for the pinned,
   least-privilege code-scanning contract.
+- See `docs/plans/2026-06-14-messenger-challenge-escaping.md` for the reflected
+  challenge boundary found by CodeQL.
 - See `docs/plans/2026-06-12-messenger-json-content-type.md` for the exact JSON
   media-type requirement on signed Messenger webhook requests.
 - See `docs/plans/2026-06-13-messenger-echo-guard.md` for ignoring page echo

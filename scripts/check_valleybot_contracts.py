@@ -76,6 +76,9 @@ MODERATION_REVIEW_PLAN_PATH = (
 CODEQL_ANALYSIS_PLAN_PATH = (
     ROOT / "docs" / "plans" / "2026-06-14-codeql-analysis.md"
 )
+MESSENGER_CHALLENGE_ESCAPE_PLAN_PATH = (
+    ROOT / "docs" / "plans" / "2026-06-14-messenger-challenge-escaping.md"
+)
 
 
 class FakeBottle:
@@ -252,6 +255,7 @@ def test_completed_plans_are_in_docs_plans():
     assert_completed_plan(MAKE_ROOT_PROTECTION_PLAN_PATH, "Make root override protection")
     assert_completed_plan(MODERATION_REVIEW_PLAN_PATH, "moderation review guide")
     assert_completed_plan(CODEQL_ANALYSIS_PLAN_PATH, "CodeQL analysis")
+    assert_completed_plan(MESSENGER_CHALLENGE_ESCAPE_PLAN_PATH, "Messenger challenge escaping")
 
 
 def test_runtime_and_ci_contracts():
@@ -348,6 +352,15 @@ def test_runtime_and_ci_contracts():
             "The repository and external-directory `make check` passed.",
             "Four hostile CodeQL workflow mutations were rejected"):
         assert_true(plan_contract in codeql_plan, "CodeQL plan must record {0}".format(plan_contract))
+    challenge_plan = MESSENGER_CHALLENGE_ESCAPE_PLAN_PATH.read_text(encoding="utf-8")
+    for plan_contract in (
+            "The repository and external-directory `make check` passed.",
+            "hostile source mutation that restored the raw challenge return was"):
+        assert_true(plan_contract in challenge_plan, "challenge plan must record {0}".format(plan_contract))
+    assert_true("HTML-escaped before response delivery" in readme, "README must document challenge escaping")
+    assert_true("valid verification token cannot reflect executable markup" in security, "SECURITY.md must document challenge escaping")
+    assert_true("Escape verified Messenger challenge responses" in vision, "VISION.md must preserve challenge escaping")
+    assert_true("reflected-XSS" in changes, "CHANGES.md must record challenge escaping")
 
     makefile = (ROOT / "Makefile").read_text(encoding="utf-8")
     makefile_lines = set(makefile.splitlines())
@@ -366,6 +379,10 @@ def test_runtime_and_ci_contracts():
     assert_true("test_facebook_webhook_rejects_oversized_payload" in runtime_tests, "Bottle/WebTest must cover oversized Messenger payloads")
     assert_true("is_json_content_type" in app_source, "Messenger POST requests must require JSON media types")
     assert_true("test_facebook_webhook_rejects_non_json_content_type" in runtime_tests, "Bottle/WebTest must cover non-JSON Messenger payloads")
+    assert_true("from html import escape" in app_source, "Messenger challenge responses must use standard HTML escaping")
+    assert_true("return escape(challenge, quote=True)" in app_source, "verified Messenger challenges must be escaped")
+    assert_true("test_facebook_challenge_escapes_reflected_markup" in runtime_tests, "Bottle/WebTest must cover reflected challenge markup")
+    assert_true("test_messenger_verification_escapes_reflected_markup" in Path(__file__).read_text(encoding="utf-8"), "dependency-free contracts must cover reflected challenge markup")
 
 
 def test_messenger_post_rejects_oversized_declared_body():
@@ -455,6 +472,25 @@ def test_messenger_verification_accepts_matching_token():
 
     assert_equal(body, "challenge-1", "valid verify token challenge")
     assert_equal(response.status, 200, "valid verify token status")
+
+
+def test_messenger_verification_escapes_reflected_markup():
+    app, request, response, _requests = load_app()
+
+    request.query = {
+        "hub.challenge": '<script>alert("xss")</script>',
+        "hub.verify_token": "verify-secret",
+    }
+    response.status = 200
+
+    body = app.messenger_webhook()
+
+    assert_equal(
+        body,
+        "&lt;script&gt;alert(&quot;xss&quot;)&lt;/script&gt;",
+        "verified challenge markup must be escaped",
+    )
+    assert_equal(response.status, 200, "escaped challenge status")
 
 
 def test_messenger_post_ignores_non_message_events():
@@ -1152,6 +1188,7 @@ def main():
         test_messenger_post_rejects_non_json_content_types_before_authentication,
         test_messenger_verification_requires_matching_token,
         test_messenger_verification_accepts_matching_token,
+        test_messenger_verification_escapes_reflected_markup,
         test_messenger_post_ignores_non_message_events,
         test_messenger_post_ignores_echoes_and_continues_scanning,
         test_messenger_post_requires_boolean_true_echo_flag,

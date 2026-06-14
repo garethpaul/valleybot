@@ -186,6 +186,19 @@ class TestFacebook(unittest.TestCase):
                          app.settings.messenger_verify_token)
         self.assertEqual(r.text, self.challenge)
 
+    def test_facebook_challenge_escapes_reflected_markup(self):
+        r = test_app.get(
+            '/messenger/webhook',
+            params={
+                'hub.challenge': '<script>alert("xss")</script>',
+                'hub.verify_token': app.settings.messenger_verify_token,
+            },
+        )
+        self.assertEqual(
+            r.text,
+            '&lt;script&gt;alert(&quot;xss&quot;)&lt;/script&gt;',
+        )
+
     def test_facebook_challenge_rejects_bad_token(self):
         """
         Test that the webhook rejects invalid verification tokens

@@ -2,6 +2,8 @@
 
 ## 2026-06-14
 
+- Escaped verified Messenger webhook challenges to close the reflected-XSS
+  finding reported by CodeQL.
 - Added pinned, least-privilege CodeQL analysis for GitHub Actions and Python
   to every hosted push and pull request.
 - Added a mandatory human moderation checklist for response templates, blocked
