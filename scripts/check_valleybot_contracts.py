@@ -67,6 +67,9 @@ MESSENGER_REPLAY_PLAN_PATH = (
 MESSENGER_BATCH_PLAN_PATH = (
     ROOT / "docs" / "plans" / "2026-06-13-messenger-batch-processing-bound.md"
 )
+MAKE_ROOT_PROTECTION_PLAN_PATH = (
+    ROOT / "docs" / "plans" / "2026-06-14-make-root-override-protection.md"
+)
 
 
 class FakeBottle:
@@ -240,6 +243,7 @@ def test_completed_plans_are_in_docs_plans():
     assert_completed_plan(MESSENGER_ECHO_PLAN_PATH, "Messenger echo guard")
     assert_completed_plan(MESSENGER_REPLAY_PLAN_PATH, "Messenger replay guard")
     assert_completed_plan(MESSENGER_BATCH_PLAN_PATH, "Messenger batch processing bound")
+    assert_completed_plan(MAKE_ROOT_PROTECTION_PLAN_PATH, "Make root override protection")
 
 
 def test_runtime_and_ci_contracts():
@@ -309,7 +313,9 @@ def test_runtime_and_ci_contracts():
         assert_true(security_contract in security, "SECURITY.md must document {0}".format(security_contract))
 
     makefile = (ROOT / "Makefile").read_text(encoding="utf-8")
-    assert_true("ROOT := $(CURDIR)" in makefile, "Makefile must use make's selected working directory as the repository root")
+    makefile_lines = set(makefile.splitlines())
+    assert_true("override ROOT := $(CURDIR)" in makefile_lines, "Makefile must protect make's selected working directory as the repository root")
+    assert_true("PYTHON ?= python3" in makefile_lines, "Makefile must preserve the Python command override")
     assert_true('find "$(ROOT)"' in makefile, "Makefile cleanup must stay inside the repository")
     assert_true('"$(ROOT)/scripts/check_valleybot_contracts.py"' in makefile, "Makefile must use the rooted contract path")
     assert_true('$(MAKE) -C "$(ROOT)" clean' in makefile, "recursive cleanup must select the repository directory")

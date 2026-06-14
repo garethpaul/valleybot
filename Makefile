@@ -1,5 +1,5 @@
 PYTHON ?= python3
-ROOT := $(CURDIR)
+override ROOT := $(CURDIR)
 
 PYTHON_FILES := \
 	app.py \
