@@ -159,6 +159,9 @@ class TestFacebook(unittest.TestCase):
             def __init__(self, user_id):
                 self.content = json.dumps({'recipient_id': user_id})
 
+            def raise_for_status(self):
+                return None
+
         def fake_post(url, **kwargs):
             calls.append((url, kwargs))
             return FakeResponse(self.user_id)
@@ -175,6 +178,22 @@ class TestFacebook(unittest.TestCase):
         self.assertEqual(calls[0][1]['headers']['Authorization'],
                          'Bearer ' + app.settings.messenger_token)
         self.assertEqual(calls[0][1]['timeout'], app.settings.request_timeout)
+
+    def test_facebook_response_raises_for_http_error(self):
+        original_post = app.requests.post
+
+        class FailedResponse(object):
+            content = b'provider error'
+
+            def raise_for_status(self):
+                raise RuntimeError('provider rejected reply')
+
+        app.requests.post = lambda _url, **_kwargs: FailedResponse()
+        try:
+            with self.assertRaisesRegex(RuntimeError, 'provider rejected reply'):
+                app.messenger_reply(self.user_id, 'hello this is a test')
+        finally:
+            app.requests.post = original_post
 
     def test_facebook_challenge(self):
         """

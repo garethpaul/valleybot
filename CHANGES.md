@@ -4,6 +4,8 @@
 
 - Anchored Make cleanup and verification to the loaded Makefile directory so
   external `make -f` invocations cannot target the caller's filesystem tree.
+- Rejected unsuccessful Messenger provider responses before accepting reply
+  content, allowing failed message-ID claims to be retried.
 
 ## 2026-06-14
 

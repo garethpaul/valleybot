@@ -52,6 +52,8 @@ Recent non-empty Messenger message IDs are claimed before outbound replies in a
 bounded process-local cache. Duplicate deliveries are acknowledged without a
 second reply, and outbound exceptions release their claim. This protection
 does not span multiple workers or process restarts.
+Provider HTTP errors propagate through the webhook handler and release any
+message-ID claim so a later provider delivery can retry the outbound reply.
 Each signed webhook processes at most 20 valid user messages in payload order,
 limiting outbound reply amplification while preserving per-message replay
 claims and failure release.

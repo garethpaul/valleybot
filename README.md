@@ -62,8 +62,10 @@ The setup commands above are derived from repository files. Legacy mobile, Pytho
   webhook text, and Messenger sender IDs must be valid before response
   generation. Recent Messenger message IDs are claimed in a bounded in-memory
   cache so provider retries do not send duplicate replies; outbound exceptions
-  release their claim for recovery. Signed webhook batches process up to 20
-  valid user messages in payload order. Messenger POST bodies larger than 1 MiB are rejected with HTTP
+  release their claim for recovery. Unsuccessful provider HTTP responses raise
+  before reply content is accepted, allowing the webhook delivery to be
+  retried. Signed webhook batches process up to 20 valid user messages in
+  payload order. Messenger POST bodies larger than 1 MiB are rejected with HTTP
   413 before signature verification or JSON parsing. Generated responses that
   fail moderation use a reviewed generic fallback instead of failing a request.
 - `make check` runs `make verify` with bytecode cleanup before and after.
@@ -160,6 +162,8 @@ When the required SDK or runtime is unavailable, use static checks and source re
   media-type requirement on signed Messenger webhook requests.
 - See `docs/plans/2026-06-13-messenger-echo-guard.md` for ignoring page echo
   messages without hiding later user messages in the same webhook payload.
+- See `docs/plans/2026-06-15-messenger-reply-http-status.md` for provider HTTP
+  failure handling and replay-claim recovery.
 
 ## Contributing
 

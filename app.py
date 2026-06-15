@@ -255,6 +255,7 @@ def messenger_reply(user_id, msg):
         json=data,
         headers=headers,
         timeout=settings.request_timeout)
+    resp.raise_for_status()
     return resp.content
 
 

@@ -82,6 +82,9 @@ MESSENGER_CHALLENGE_ESCAPE_PLAN_PATH = (
 MAKEFILE_LOCATION_ROOT_PLAN_PATH = (
     ROOT / "docs" / "plans" / "2026-06-15-makefile-location-root.md"
 )
+MESSENGER_REPLY_HTTP_STATUS_PLAN_PATH = (
+    ROOT / "docs" / "plans" / "2026-06-15-messenger-reply-http-status.md"
+)
 
 
 class FakeBottle:
@@ -112,14 +115,25 @@ class MutableResponse:
         self.content_type = None
 
 
+class FakeHttpResponse:
+    def __init__(self, error=None):
+        self.content = b'{"recipient_id": "user-1"}'
+        self.error = error
+
+    def raise_for_status(self):
+        if self.error is not None:
+            raise self.error
+
+
 class FakeRequests(types.SimpleNamespace):
     def __init__(self):
         super(FakeRequests, self).__init__()
         self.calls = []
+        self.response_error = None
 
     def post(self, url, **kwargs):
         self.calls.append((url, kwargs))
-        return types.SimpleNamespace(content=b'{"recipient_id": "user-1"}')
+        return FakeHttpResponse(self.response_error)
 
 
 def install_stubs():
@@ -260,6 +274,7 @@ def test_completed_plans_are_in_docs_plans():
     assert_completed_plan(CODEQL_ANALYSIS_PLAN_PATH, "CodeQL analysis")
     assert_completed_plan(MESSENGER_CHALLENGE_ESCAPE_PLAN_PATH, "Messenger challenge escaping")
     assert_completed_plan(MAKEFILE_LOCATION_ROOT_PLAN_PATH, "Makefile location root")
+    assert_completed_plan(MESSENGER_REPLY_HTTP_STATUS_PLAN_PATH, "Messenger reply HTTP status")
 
 
 def test_runtime_and_ci_contracts():
@@ -925,6 +940,53 @@ def test_messenger_reply_uses_header_auth_and_timeout():
     )
 
 
+def test_messenger_post_releases_claim_after_provider_http_error():
+    app, request, _response, requests = load_app()
+    request.json = messenger_payload("mid-provider-http-error")
+    requests.response_error = RuntimeError("provider rejected reply")
+
+    try:
+        app.messenger_post()
+        raise AssertionError("Messenger provider HTTP errors must propagate")
+    except RuntimeError as exc:
+        assert_equal(str(exc), "provider rejected reply", "provider HTTP error")
+
+    requests.response_error = None
+    assert_equal(app.messenger_post(), "ok", "retry after provider HTTP error")
+    assert_equal(len(requests.calls), 2, "provider HTTP error must release replay claim")
+
+
+def test_messenger_reply_http_status_source_contracts():
+    source = (ROOT / "app.py").read_text(encoding="utf-8")
+    runtime_tests = (ROOT / "bot_tests.py").read_text(encoding="utf-8")
+    reply_start = source.index("def messenger_reply")
+    reply_end = source.index("# WEB BOT INTEGRATION", reply_start)
+    reply_source = source[reply_start:reply_end]
+    post_position = reply_source.index("requests.post(")
+    status_position = reply_source.index("resp.raise_for_status()")
+    return_position = reply_source.index("return resp.content")
+    assert_true(
+        post_position < status_position < return_position,
+        "Messenger reply must reject provider HTTP errors before returning content",
+    )
+    assert_true(
+        "test_facebook_response_raises_for_http_error" in runtime_tests,
+        "Bottle/WebTest suite must cover Messenger provider HTTP errors",
+    )
+
+    docs = {
+        "README.md": "Unsuccessful provider HTTP responses raise",
+        "SECURITY.md": "Provider HTTP errors propagate",
+        "VISION.md": "Fail Messenger replies on provider HTTP errors",
+        "CHANGES.md": "Rejected unsuccessful Messenger provider responses",
+    }
+    for relative_path, phrase in docs.items():
+        assert_true(
+            phrase in (ROOT / relative_path).read_text(encoding="utf-8"),
+            "{0} must document Messenger provider HTTP failures".format(relative_path),
+        )
+
+
 def test_request_timeout_accepts_positive_float_env():
     assert_equal(
         load_settings_with_request_timeout("2.5"),
@@ -1218,6 +1280,8 @@ def main():
         test_messenger_replay_source_contracts,
         test_messenger_batch_source_contracts,
         test_messenger_reply_uses_header_auth_and_timeout,
+        test_messenger_post_releases_claim_after_provider_http_error,
+        test_messenger_reply_http_status_source_contracts,
         test_request_timeout_accepts_positive_float_env,
         test_request_timeout_defaults_for_invalid_env,
         test_bot_json_request_rejects_invalid_or_blank_payloads,
