@@ -67,8 +67,9 @@ The setup commands above are derived from repository files. Legacy mobile, Pytho
   413 before signature verification or JSON parsing. Generated responses that
   fail moderation use a reviewed generic fallback instead of failing a request.
 - `make check` runs `make verify` with bytecode cleanup before and after.
-  The Makefile uses make's selected directory as the repository root, so the
-  same gate can run from an external working directory with `make -C`.
+  The Makefile derives the repository root from its own location, so the same
+  gate can run from an external working directory with
+  `make -f /path/to/valleybot/Makefile check`.
 - `make prepare-corpora` installs the current TextBlob tokenizer and tagger
   data into the existing project-local `nltk_data` directory. Heroku runs the
   same step through `bin/post_compile`.

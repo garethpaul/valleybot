@@ -1,5 +1,10 @@
 # Changes
 
+## 2026-06-15
+
+- Anchored Make cleanup and verification to the loaded Makefile directory so
+  external `make -f` invocations cannot target the caller's filesystem tree.
+
 ## 2026-06-14
 
 - Escaped verified Messenger webhook challenges to close the reflected-XSS

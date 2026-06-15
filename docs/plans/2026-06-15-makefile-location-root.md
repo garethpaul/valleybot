@@ -1,6 +1,6 @@
 # Anchor Make Cleanup to the Makefile Location
 
-## Status: In Progress
+## Status: Completed
 
 ## Context
 
@@ -27,3 +27,23 @@ outside the checkout therefore sends recursive cleanup into the caller's tree.
 
 - Do not change bot behavior, dependencies, workflows, or tracked NLTK data.
 - Do not merge or close stacked pull requests without owner authorization.
+
+## Work Completed
+
+- Replaced the protected caller-directory root with the absolute directory of
+  the last loaded Makefile.
+- Added fail-closed contracts for the exact rooted declaration and rejection
+  of `CURDIR`.
+- Updated local verification documentation without changing runtime behavior.
+
+## Verification
+
+- The focused checker passed 50 dependency-free contracts.
+- Caller-directory and missing-`override` mutations were rejected, and a
+  hostile command-line `ROOT` assignment could not redirect any dry-run path.
+- Repository and external-directory `make check` passed with a pinned Python
+  environment: 50 contracts and 28 runtime tests in each run.
+- `pip check` passed and `pip-audit` found no known vulnerabilities in auditable
+  dependencies; the pinned private WebOb build was explicitly unauditable.
+- Tracked NLTK corpus hashes remained unchanged. Four downloader outputs were
+  removed by exact path after validation.

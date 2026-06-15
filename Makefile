@@ -1,5 +1,5 @@
 PYTHON ?= python3
-override ROOT := $(CURDIR)
+override ROOT := $(abspath $(dir $(lastword $(MAKEFILE_LIST))))
 
 PYTHON_FILES := \
 	app.py \

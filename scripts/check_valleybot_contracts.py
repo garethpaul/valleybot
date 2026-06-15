@@ -79,6 +79,9 @@ CODEQL_ANALYSIS_PLAN_PATH = (
 MESSENGER_CHALLENGE_ESCAPE_PLAN_PATH = (
     ROOT / "docs" / "plans" / "2026-06-14-messenger-challenge-escaping.md"
 )
+MAKEFILE_LOCATION_ROOT_PLAN_PATH = (
+    ROOT / "docs" / "plans" / "2026-06-15-makefile-location-root.md"
+)
 
 
 class FakeBottle:
@@ -256,6 +259,7 @@ def test_completed_plans_are_in_docs_plans():
     assert_completed_plan(MODERATION_REVIEW_PLAN_PATH, "moderation review guide")
     assert_completed_plan(CODEQL_ANALYSIS_PLAN_PATH, "CodeQL analysis")
     assert_completed_plan(MESSENGER_CHALLENGE_ESCAPE_PLAN_PATH, "Messenger challenge escaping")
+    assert_completed_plan(MAKEFILE_LOCATION_ROOT_PLAN_PATH, "Makefile location root")
 
 
 def test_runtime_and_ci_contracts():
@@ -364,7 +368,12 @@ def test_runtime_and_ci_contracts():
 
     makefile = (ROOT / "Makefile").read_text(encoding="utf-8")
     makefile_lines = set(makefile.splitlines())
-    assert_true("override ROOT := $(CURDIR)" in makefile_lines, "Makefile must protect make's selected working directory as the repository root")
+    assert_true(
+        "override ROOT := $(abspath $(dir $(lastword $(MAKEFILE_LIST))))"
+        in makefile_lines,
+        "Makefile must protect the loaded Makefile directory as the repository root",
+    )
+    assert_true("$(CURDIR)" not in makefile, "Makefile root must not trust the caller directory")
     assert_true("PYTHON ?= python3" in makefile_lines, "Makefile must preserve the Python command override")
     assert_true('find "$(ROOT)"' in makefile, "Makefile cleanup must stay inside the repository")
     assert_true('"$(ROOT)/scripts/check_valleybot_contracts.py"' in makefile, "Makefile must use the rooted contract path")
