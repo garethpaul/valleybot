@@ -68,6 +68,8 @@ The setup commands above are derived from repository files. Legacy mobile, Pytho
   payload order. Messenger POST bodies larger than 1 MiB are rejected with HTTP
   413 before signature verification or JSON parsing. Generated responses that
   fail moderation use a reviewed generic fallback instead of failing a request.
+  Messenger GET verification requires the exact `subscribe` mode after token
+  authentication and before an escaped challenge is returned.
 - `make check` runs `make verify` with bytecode cleanup before and after.
   The Makefile derives the repository root from its own location, so the same
   gate can run from an external working directory with

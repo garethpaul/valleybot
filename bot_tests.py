@@ -201,6 +201,7 @@ class TestFacebook(unittest.TestCase):
         """
         r = test_app.get('/messenger/webhook?hub.challenge=' +
                          self.challenge +
+                         '&hub.mode=subscribe' +
                          '&hub.verify_token=' +
                          app.settings.messenger_verify_token)
         self.assertEqual(r.text, self.challenge)
@@ -210,6 +211,7 @@ class TestFacebook(unittest.TestCase):
             '/messenger/webhook',
             params={
                 'hub.challenge': '<script>alert("xss")</script>',
+                'hub.mode': 'subscribe',
                 'hub.verify_token': app.settings.messenger_verify_token,
             },
         )
@@ -224,9 +226,28 @@ class TestFacebook(unittest.TestCase):
         """
         r = test_app.get('/messenger/webhook?hub.challenge=' +
                          self.challenge +
+                         '&hub.mode=subscribe' +
                          '&hub.verify_token=bad-token',
                          expect_errors=True)
         self.assertEqual(r.status_int, 403)
+
+    def test_facebook_challenge_requires_subscribe_mode(self):
+        for mode in (None, '', 'Subscribe', 'unsubscribe'):
+            params = {
+                'hub.challenge': self.challenge,
+                'hub.verify_token': app.settings.messenger_verify_token,
+            }
+            if mode is not None:
+                params['hub.mode'] = mode
+
+            r = test_app.get(
+                '/messenger/webhook',
+                params=params,
+                expect_errors=True,
+            )
+
+            self.assertEqual(r.status_int, 400)
+            self.assertNotEqual(r.text, self.challenge)
 
     def test_facebook_delivery_event_is_ignored(self):
         """

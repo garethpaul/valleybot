@@ -43,6 +43,8 @@ the raw request body under `MESSENGER_APP_SECRET`. Keep that secret distinct
 from page and verification tokens and rotate it if webhook logs expose it.
 Verified Messenger GET challenges are escaped before response delivery so a
 valid verification token cannot reflect executable markup into a browser.
+Messenger GET verification requires the exact `subscribe` mode after token
+authentication and before any challenge is reflected.
 Webhook bodies larger than 1 MiB are rejected with HTTP 413 before signature
 verification, JSON parsing, response generation, or outbound API calls.
 Messenger POST requests must use the `application/json` media type; optional

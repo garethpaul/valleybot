@@ -6,6 +6,8 @@
   external `make -f` invocations cannot target the caller's filesystem tree.
 - Rejected unsuccessful Messenger provider responses before accepting reply
   content, allowing failed message-ID claims to be retried.
+- Messenger GET verification requires the exact `subscribe` mode before an
+  authenticated challenge is returned.
 
 ## 2026-06-14
 

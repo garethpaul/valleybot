@@ -76,6 +76,10 @@ def messenger_webhook():
     if not secure_compare(verify_token, expected_token):
         response.status = 403
         return "forbidden"
+    verification_mode = request.query.get("hub.mode")
+    if verification_mode != "subscribe":
+        response.status = 400
+        return "invalid mode"
     if not challenge:
         response.status = 400
         return "missing challenge"

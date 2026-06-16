@@ -406,6 +406,10 @@ def test_runtime_and_ci_contracts():
     assert_true("from html import escape" in app_source, "Messenger challenge responses must use standard HTML escaping")
     assert_true("return escape(challenge, quote=True)" in app_source, "verified Messenger challenges must be escaped")
     assert_true("test_facebook_challenge_escapes_reflected_markup" in runtime_tests, "Bottle/WebTest must cover reflected challenge markup")
+    assert_true(
+        "test_facebook_challenge_requires_subscribe_mode" in runtime_tests,
+        "Bottle/WebTest must cover Messenger verification mode",
+    )
     assert_true("test_messenger_verification_escapes_reflected_markup" in Path(__file__).read_text(encoding="utf-8"), "dependency-free contracts must cover reflected challenge markup")
 
 
@@ -477,7 +481,11 @@ def test_messenger_post_rejects_non_json_content_types_before_authentication():
 def test_messenger_verification_requires_matching_token():
     app, request, response, _requests = load_app()
 
-    request.query = {"hub.challenge": "challenge-1", "hub.verify_token": "wrong"}
+    request.query = {
+        "hub.challenge": "challenge-1",
+        "hub.mode": "subscribe",
+        "hub.verify_token": "wrong",
+    }
     response.status = 200
 
     body = app.messenger_webhook()
@@ -489,7 +497,11 @@ def test_messenger_verification_requires_matching_token():
 def test_messenger_verification_accepts_matching_token():
     app, request, response, _requests = load_app()
 
-    request.query = {"hub.challenge": "challenge-1", "hub.verify_token": "verify-secret"}
+    request.query = {
+        "hub.challenge": "challenge-1",
+        "hub.mode": "subscribe",
+        "hub.verify_token": "verify-secret",
+    }
     response.status = 200
 
     body = app.messenger_webhook()
@@ -503,6 +515,7 @@ def test_messenger_verification_escapes_reflected_markup():
 
     request.query = {
         "hub.challenge": '<script>alert("xss")</script>',
+        "hub.mode": "subscribe",
         "hub.verify_token": "verify-secret",
     }
     response.status = 200
@@ -515,6 +528,69 @@ def test_messenger_verification_escapes_reflected_markup():
         "verified challenge markup must be escaped",
     )
     assert_equal(response.status, 200, "escaped challenge status")
+
+
+def test_messenger_verification_requires_exact_subscribe_mode():
+    for mode in (None, "", "Subscribe", "unsubscribe", " subscribe "):
+        app, request, response, _requests = load_app()
+        request.query = {
+            "hub.challenge": "challenge-1",
+            "hub.verify_token": "verify-secret",
+        }
+        if mode is not None:
+            request.query["hub.mode"] = mode
+        response.status = 200
+
+        body = app.messenger_webhook()
+
+        assert_equal(response.status, 400, "invalid verification mode status {0!r}".format(mode))
+        assert_true(body != "challenge-1", "invalid verification mode must not reflect challenge")
+
+
+def test_messenger_verification_mode_source_contracts():
+    source = (ROOT / "app.py").read_text(encoding="utf-8")
+    runtime_tests = (ROOT / "bot_tests.py").read_text(encoding="utf-8")
+    checker_source = Path(__file__).read_text(encoding="utf-8")
+    plan = (ROOT / "docs" / "plans" / "2026-06-16-messenger-verification-mode.md").read_text(
+        encoding="utf-8"
+    )
+
+    for contract in (
+        'verification_mode = request.query.get("hub.mode")',
+        'if verification_mode != "subscribe":',
+        'return "invalid mode"',
+    ):
+        assert_true(contract in source, "missing Messenger verification mode contract {0}".format(contract))
+
+    token_check = source.index("if not secure_compare(verify_token, expected_token):")
+    mode_check = source.index('if verification_mode != "subscribe":')
+    challenge_check = source.index("if not challenge:")
+    challenge_return = source.index("return escape(challenge, quote=True)")
+    assert_true(
+        token_check < mode_check < challenge_check < challenge_return,
+        "Messenger verification must authenticate, validate mode, validate challenge, then escape",
+    )
+
+    assert_true(
+        "test_facebook_challenge_requires_subscribe_mode" in runtime_tests,
+        "Bottle/WebTest must retain invalid Messenger mode coverage",
+    )
+    main_source = checker_source.split("def main():", 1)[1]
+    assert_true(
+        "\n        test_messenger_verification_requires_exact_subscribe_mode,\n" in main_source,
+        "dependency-free Messenger mode coverage must remain registered",
+    )
+    guidance = "Messenger GET verification requires the exact `subscribe` mode"
+    for relative_path in ("README.md", "SECURITY.md", "VISION.md", "CHANGES.md"):
+        document = (ROOT / relative_path).read_text(encoding="utf-8")
+        assert_true(guidance in document, "{0} must document exact Messenger mode".format(relative_path))
+    for contract in (
+        "Status: Completed",
+        "test_messenger_verification_requires_exact_subscribe_mode",
+        "repository and external-directory `make check` passed",
+        "hostile mutations were rejected",
+    ):
+        assert_true(contract in plan, "verification-mode plan must keep {0}".format(contract))
 
 
 def test_messenger_post_ignores_non_message_events():
@@ -1260,6 +1336,8 @@ def main():
         test_messenger_verification_requires_matching_token,
         test_messenger_verification_accepts_matching_token,
         test_messenger_verification_escapes_reflected_markup,
+        test_messenger_verification_requires_exact_subscribe_mode,
+        test_messenger_verification_mode_source_contracts,
         test_messenger_post_ignores_non_message_events,
         test_messenger_post_ignores_echoes_and_continues_scanning,
         test_messenger_post_requires_boolean_true_echo_flag,

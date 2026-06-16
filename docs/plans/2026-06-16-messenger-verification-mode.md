@@ -1,6 +1,6 @@
 # Require Messenger Subscription Verification Mode
 
-## Status: Planned
+## Status: Completed
 
 ## Context
 
@@ -35,3 +35,24 @@ the platform's `subscribe` verification operation.
 - Do not accept case-folded or whitespace-normalized alternatives to the
   platform's exact `subscribe` mode.
 - Do not merge or close stacked pull requests without owner authorization.
+
+## Work Completed
+
+- Required the exact `subscribe` mode after token authentication and before
+  challenge validation or reflection.
+- Added dependency-free and Bottle/WebTest regressions for valid, missing,
+  blank, differently cased, unrelated, and whitespace-wrapped mode values.
+- Added fail-closed source, test-registration, documentation, changelog, and
+  completed-plan contracts.
+
+## Verification
+
+- `test_messenger_verification_requires_exact_subscribe_mode` passed as part
+  of the 54-test dependency-free contract gate.
+- All 30 Bottle/WebTest tests passed under Python 3.12, the supported runtime
+  for the repository's pinned legacy WebOb dependency.
+- repository and external-directory `make check` passed with bounded
+  execution.
+- Six hostile mutations were rejected, covering inverted and normalized mode
+  checks plus removed dependency-free, Bottle/WebTest, documentation, and plan
+  evidence.

@@ -40,6 +40,8 @@ Priority:
 - Keep pinned CodeQL coverage for GitHub Actions and Python with job-scoped
   upload permission
 - Escape verified Messenger challenge responses before reflecting them
+- Messenger GET verification requires the exact `subscribe` mode after token
+  authentication
 - Return reviewed fallback text when a generated response fails moderation
 - Avoid expanding stereotype content without review
 - Require auditable human review of response templates, blocked terms,
