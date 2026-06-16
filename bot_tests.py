@@ -2,8 +2,10 @@ import unittest
 import os
 import hashlib
 import hmac
+import time
+from urllib.parse import urlencode
 
-os.environ.setdefault('SLACK_TOKEN', 'test-slack-token')
+os.environ.setdefault('SLACK_SIGNING_SECRET', 'test-slack-signing-secret')
 os.environ.setdefault('MESSENGER_TOKEN', 'test-page-token')
 os.environ.setdefault('MESSENGER_VERIFY_TOKEN', 'test-verify-token')
 os.environ.setdefault('MESSENGER_APP_SECRET', 'test-app-secret')
@@ -99,25 +101,86 @@ class TestBottleApp(unittest.TestCase):
 
 
 class TestSlack(unittest.TestCase):
+    def post_signed_slack(self, text, timestamp=None, signature=None,
+                          expect_errors=False):
+        body = urlencode({'text': text})
+        timestamp = str(int(time.time()) if timestamp is None else timestamp)
+        if signature is None:
+            base = 'v0:{0}:{1}'.format(timestamp, body).encode('utf-8')
+            signature = 'v0=' + hmac.new(
+                app.settings.slack_signing_secret.encode('utf-8'),
+                base,
+                hashlib.sha256).hexdigest()
+        return test_app.post(
+            '/slack',
+            body,
+            headers={
+                'X-Slack-Request-Timestamp': timestamp,
+                'X-Slack-Signature': signature,
+            },
+            content_type='application/x-www-form-urlencoded',
+            expect_errors=expect_errors)
+
     def test_slack(self):
         """
         A simple test for the slackbot.
         """
-        response = test_app.post('/slack',
-                                 {'text': 'do you work in finance',
-                                  'token': app.settings.slack_token})
+        response = self.post_signed_slack('do you work in finance')
         self.assertEqual(response.status_int, 200)
         self.assertTrue(len(response.body) >= 1)
 
-    def test_slack_rejects_bad_token(self):
+    def test_slack_rejects_bad_signature_without_bot_call(self):
         """
-        Slack requests must include the configured verification token.
+        Slack requests must include a valid signing-secret signature.
         """
-        response = test_app.post('/slack',
-                                 {'text': 'do you work in finance',
-                                  'token': 'bad-token'},
-                                 expect_errors=True)
+        original_respond = app.bot.respond
+        calls = []
+        app.bot.respond = lambda text: calls.append(text)
+        try:
+            response = self.post_signed_slack(
+                'do you work in finance',
+                signature='v0=' + ('0' * 64),
+                expect_errors=True)
+        finally:
+            app.bot.respond = original_respond
         self.assertEqual(response.status_int, 403)
+        self.assertEqual(calls, [])
+
+    def test_slack_rejects_stale_timestamp(self):
+        response = self.post_signed_slack(
+            'do you work in finance',
+            timestamp=int(time.time()) - 301,
+            expect_errors=True)
+
+        self.assertEqual(response.status_int, 403)
+
+    def test_slack_rejects_malformed_timestamp(self):
+        response = self.post_signed_slack(
+            'do you work in finance',
+            timestamp='not-a-time',
+            expect_errors=True)
+
+        self.assertEqual(response.status_int, 403)
+
+    def test_slack_rejects_oversized_body_before_bot_call(self):
+        original_respond = app.bot.respond
+        calls = []
+        app.bot.respond = lambda text: calls.append(text)
+        try:
+            response = test_app.post(
+                '/slack',
+                b'x' * (app.MAX_SLACK_REQUEST_BYTES + 1),
+                headers={
+                    'X-Slack-Request-Timestamp': str(int(time.time())),
+                    'X-Slack-Signature': 'v0=' + ('0' * 64),
+                },
+                content_type='application/x-www-form-urlencoded',
+                expect_errors=True)
+        finally:
+            app.bot.respond = original_respond
+
+        self.assertEqual(response.status_int, 413)
+        self.assertEqual(calls, [])
 
 
 class TestFacebook(unittest.TestCase):

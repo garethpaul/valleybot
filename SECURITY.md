@@ -67,9 +67,11 @@ Messenger webhook events should only generate bot replies when sender IDs and
 message text are textual and nonblank. Non-message, blank, or non-text events
 should be acknowledged without response generation.
 
-Slack command events should only generate bot replies after token validation
-and when command text is textual and nonblank. Missing, blank, or non-text
-command values should return the existing missing-text response.
+Slack signing secret verification covers the exact raw request body and a
+five-minute timestamp window for both entry points. Unsigned, stale, future,
+tampered, or larger-than-1-MiB Slack commands must fail before bot execution;
+the deprecated payload verification token is not an authentication fallback.
+Authenticated command text must still be textual and nonblank.
 
 ## Dependency and Supply Chain Security
 

@@ -13,7 +13,7 @@ def positive_float_from_env(name, default):
     return value
 
 
-slack_token = os.environ.get('SLACK_TOKEN', '')
+slack_signing_secret = os.environ.get('SLACK_SIGNING_SECRET', '')
 messenger_token = os.environ.get('MESSENGER_TOKEN', '')
 messenger_verify_token = os.environ.get('MESSENGER_VERIFY_TOKEN', messenger_token)
 messenger_app_secret = os.environ.get('MESSENGER_APP_SECRET', '')

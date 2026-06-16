@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Dependency-free route contract checks for the legacy Bottle app."""
 import ast
+import base64
 import importlib.util
 import hashlib
 import hmac
@@ -8,7 +9,9 @@ import io
 import json
 import os
 import sys
+import time
 import types
+from urllib.parse import urlencode
 from pathlib import Path
 
 
@@ -89,6 +92,9 @@ MESSENGER_REPLY_HTTP_STATUS_PLAN_PATH = (
 MESSENGER_DEBUG_FIELD_PLAN_PATH = (
     ROOT / "docs" / "plans" / "2026-06-16-messenger-debug-field.md"
 )
+SLACK_SIGNING_SECRET_PLAN_PATH = (
+    ROOT / "docs" / "plans" / "2026-06-16-slack-signing-secret-verification.md"
+)
 
 
 class FakeBottle:
@@ -162,7 +168,7 @@ def install_stubs():
     bot.respond = respond
 
     settings = types.ModuleType("settings")
-    settings.slack_token = "slack-secret"
+    settings.slack_signing_secret = "slack-signing-secret"
     settings.messenger_token = "page-token"
     settings.messenger_verify_token = "verify-secret"
     settings.messenger_app_secret = "app-secret"
@@ -190,6 +196,41 @@ def load_slack_module():
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     return module, sys.modules["bot"]
+
+
+def slack_signature(body, timestamp, secret="slack-signing-secret"):
+    base = "v0:{0}:{1}".format(timestamp, body).encode("utf-8")
+    return "v0=" + hmac.new(
+        secret.encode("utf-8"), base, hashlib.sha256
+    ).hexdigest()
+
+
+def configure_slack_request(request, text, timestamp=None, signature=None):
+    timestamp = str(int(time.time()) if timestamp is None else timestamp)
+    body = urlencode({"text": text})
+    request.body = io.BytesIO(body.encode("utf-8"))
+    request.forms = {"text": text}
+    request.headers = {
+        "X-Slack-Request-Timestamp": timestamp,
+        "X-Slack-Signature": signature or slack_signature(body, timestamp),
+    }
+    return body, timestamp
+
+
+def signed_slack_event(text, timestamp="1000", base64_encoded=False):
+    body = urlencode({"text": text})
+    event_body = (
+        base64.b64encode(body.encode("utf-8")).decode("ascii")
+        if base64_encoded else body
+    )
+    return {
+        "headers": {
+            "X-Slack-Request-Timestamp": timestamp,
+            "X-Slack-Signature": slack_signature(body, timestamp),
+        },
+        "body": event_body,
+        "isBase64Encoded": base64_encoded,
+    }
 
 
 def load_bot_module():
@@ -297,6 +338,7 @@ def test_completed_plans_are_in_docs_plans():
     assert_completed_plan(MAKEFILE_LOCATION_ROOT_PLAN_PATH, "Makefile location root")
     assert_completed_plan(MESSENGER_REPLY_HTTP_STATUS_PLAN_PATH, "Messenger reply HTTP status")
     assert_completed_plan(MESSENGER_DEBUG_FIELD_PLAN_PATH, "Messenger debug field handling")
+    assert_completed_plan(SLACK_SIGNING_SECRET_PLAN_PATH, "Slack signing secret")
 
 
 def test_runtime_and_ci_contracts():
@@ -1279,34 +1321,39 @@ def test_moderation_review_guide_is_auditable():
     assert_true("mandatory human moderation checklist" in changes, "CHANGES must record moderation guide")
 
 
-def test_slack_command_requires_matching_token():
+def test_slack_command_requires_valid_signature():
     app, request, response, _requests = load_app()
 
-    request.forms = {"text": "do you work in finance", "token": "wrong"}
+    configure_slack_request(
+        request,
+        "do you work in finance",
+        signature="v0=" + ("0" * 64),
+    )
     response.status = 200
 
     body = app.slack_handler()
 
-    assert_true(body != "bot: do you work in finance", "invalid Slack token response")
-    assert_equal(response.status, 403, "invalid Slack token status")
+    assert_true(body != "bot: do you work in finance", "invalid Slack signature response")
+    assert_equal(response.status, 403, "invalid Slack signature status")
+    assert_equal(sys.modules["bot"].calls, [], "invalid signature must not call bot")
 
 
-def test_slack_command_accepts_matching_token():
+def test_slack_command_accepts_valid_signature():
     app, request, response, _requests = load_app()
 
-    request.forms = {"text": "do you work in finance", "token": "slack-secret"}
+    configure_slack_request(request, "do you work in finance")
     response.status = 200
 
     body = app.slack_handler()
 
-    assert_equal(body, "bot: do you work in finance", "valid Slack token response")
-    assert_equal(response.status, 200, "valid Slack token status")
+    assert_equal(body, "bot: do you work in finance", "valid Slack signature response")
+    assert_equal(response.status, 200, "valid Slack signature status")
 
 
 def test_slack_command_rejects_blank_text():
     app, request, response, _requests = load_app()
 
-    request.forms = {"text": "   ", "token": "slack-secret"}
+    configure_slack_request(request, "   ")
     response.status = 200
 
     body = app.slack_handler()
@@ -1319,7 +1366,8 @@ def test_slack_command_rejects_non_text_values():
     for text_value in ({"message": "hello"}, b"hello"):
         app, request, response, _requests = load_app()
 
-        request.forms = {"text": text_value, "token": "slack-secret"}
+        configure_slack_request(request, "placeholder")
+        request.forms = {"text": text_value}
         response.status = 200
 
         body = app.slack_handler()
@@ -1332,7 +1380,7 @@ def test_slack_command_rejects_non_text_values():
 def test_slack_command_trims_text_before_bot_call():
     app, request, response, _requests = load_app()
 
-    request.forms = {"text": "  do you work in finance  ", "token": "slack-secret"}
+    configure_slack_request(request, "  do you work in finance  ")
     response.status = 200
 
     body = app.slack_handler()
@@ -1341,41 +1389,189 @@ def test_slack_command_trims_text_before_bot_call():
     assert_equal(response.status, 200, "trimmed Slack text status")
 
 
-def test_standalone_slack_handler_requires_matching_token():
+def test_slack_command_rejects_stale_and_future_timestamps():
+    for timestamp in (int(time.time()) - 301, int(time.time()) + 1):
+        app, request, response, _requests = load_app()
+        body, timestamp_text = configure_slack_request(
+            request, "do you work in finance", timestamp=timestamp
+        )
+        request.headers["X-Slack-Signature"] = slack_signature(
+            body, timestamp_text
+        )
+        response.status = 200
+
+        result = app.slack_handler()
+
+        assert_equal(result, "forbidden", "stale/future Slack response")
+        assert_equal(response.status, 403, "stale/future Slack status")
+        assert_equal(sys.modules["bot"].calls, [], "stale/future request must not call bot")
+
+
+def test_slack_handlers_reject_oversized_bodies():
+    app, request, response, _requests = load_app()
+    request.content_length = app.MAX_SLACK_REQUEST_BYTES + 1
+    request.body = io.BytesIO(b"x")
+
+    body = app.slack_handler()
+
+    assert_equal(body, "payload too large", "oversized Bottle Slack response")
+    assert_equal(response.status, 413, "oversized Bottle Slack status")
+    assert_equal(sys.modules["bot"].calls, [], "oversized Bottle Slack request must not call bot")
+
+    slack, bot = load_slack_module()
+    oversized = "é" * 600000
+    event = {
+        "headers": {
+            "X-Slack-Request-Timestamp": "1000",
+            "X-Slack-Signature": slack_signature(oversized, "1000"),
+        },
+        "body": oversized,
+        "isBase64Encoded": False,
+    }
+
+    assert_equal(slack.slack_handler(event, now=1000), "payload too large", "oversized event Slack response")
+    assert_equal(bot.calls, [], "oversized event Slack request must not call bot")
+
+    max_encoded_length = ((app.MAX_SLACK_REQUEST_BYTES + 2) // 3) * 4
+    oversized_base64_event = {
+        "headers": {},
+        "body": "A" * (max_encoded_length + 1),
+        "isBase64Encoded": True,
+    }
+    assert_equal(
+        slack.slack_handler(oversized_base64_event, now=1000),
+        "payload too large",
+        "oversized encoded Slack response",
+    )
+
+
+def test_slack_signature_verifier_rejects_tampering_and_invalid_metadata():
+    from slack_auth import verify_slack_request
+
+    body = b"text=hello"
+    timestamp = "1000"
+    signature = slack_signature(body.decode("ascii"), timestamp)
+    assert_true(
+        verify_slack_request(
+            body, timestamp, signature, "slack-signing-secret", now=1000
+        ),
+        "valid Slack signature",
+    )
+    candidates = (
+        (b"text=tampered", timestamp, signature, "slack-signing-secret"),
+        (body, "not-a-time", signature, "slack-signing-secret"),
+        (body, "+1000", signature, "slack-signing-secret"),
+        (body, " 1000", signature, "slack-signing-secret"),
+        (body, "1001", slack_signature("text=hello", "1001"), "slack-signing-secret"),
+        (body, "699", slack_signature("text=hello", "699"), "slack-signing-secret"),
+        (body, timestamp, signature, ""),
+        (body, timestamp, "invalid", "slack-signing-secret"),
+    )
+    for candidate in candidates:
+        assert_true(
+            not verify_slack_request(*candidate, now=1000),
+            "invalid Slack signature metadata must fail closed",
+        )
+
+
+def test_slack_signing_secret_source_contracts():
+    app_source = (ROOT / "app.py").read_text(encoding="utf-8")
+    adapter_source = (ROOT / "slack.py").read_text(encoding="utf-8")
+    auth_source = (ROOT / "slack_auth.py").read_text(encoding="utf-8")
+    settings_source = (ROOT / "settings.py").read_text(encoding="utf-8")
+    runtime_tests = (ROOT / "bot_tests.py").read_text(encoding="utf-8")
+
+    for contract in (
+            'SLACK_SIGNATURE_VERSION = "v0"',
+            "SLACK_REQUEST_MAX_AGE_SECONDS = 5 * 60",
+            "if not timestamp.isdigit()",
+            'version = SLACK_SIGNATURE_VERSION.encode("ascii")',
+            'base = version + b":" + timestamp_bytes + b":" + raw_body',
+            'expected = SLACK_SIGNATURE_VERSION + "="',
+            "hmac.compare_digest(signature, expected)"):
+        assert_true(contract in auth_source, "missing Slack auth contract {0}".format(contract))
+    assert_true("request_time > current_time" in auth_source, "future Slack timestamps must fail")
+    assert_true("current_time - request_time > SLACK_REQUEST_MAX_AGE_SECONDS" in auth_source, "stale Slack timestamps must fail")
+    assert_true("request.body.read(MAX_SLACK_REQUEST_BYTES + 1)" in app_source, "Bottle Slack auth must bound the raw body")
+    assert_true(app_source.index("request.body.read(MAX_SLACK_REQUEST_BYTES + 1)") < app_source.index("request.forms.get('text')"), "Bottle Slack auth must precede form parsing")
+    assert_true("base64.b64decode(body, validate=True)" in adapter_source, "event Slack auth must decode declared base64 bodies")
+    assert_true("parse_qs(raw_body.decode(\"utf-8\")" in adapter_source, "event Slack handler must parse the verified body")
+    assert_true("SLACK_TOKEN" not in settings_source, "deprecated Slack token configuration must be removed")
+    assert_true("slack_token" not in app_source + adapter_source, "Slack token fallback must not remain")
+    assert_true("test_slack_rejects_bad_signature_without_bot_call" in runtime_tests, "Bottle runtime tests must cover signature rejection")
+
+    for path in ("AGENTS.md", "README.md", "SECURITY.md", "VISION.md", "CHANGES.md"):
+        content = (ROOT / path).read_text(encoding="utf-8")
+        assert_true("Slack signing secret" in content, "{0} must document Slack signing secret verification".format(path))
+
+    plan = SLACK_SIGNING_SECRET_PLAN_PATH.read_text(encoding="utf-8")
+    for evidence in (
+            "status: completed",
+            "complete dependency-free suite passed with 60 tests",
+            "complete pinned Bottle/WebTest suite passed with 34 tests",
+            "repository and external-directory `make verify` passed",
+            "Ten isolated hostile mutations were rejected"):
+        assert_true(evidence in plan, "Slack signing-secret plan must record {0}".format(evidence))
+
+
+def test_standalone_slack_handler_requires_valid_signature():
+    slack, bot = load_slack_module()
+    event = signed_slack_event("do you work in finance")
+    event["headers"]["X-Slack-Signature"] = "v0=" + ("0" * 64)
+
+    body = slack.slack_handler(event, now=1000)
+
+    assert_equal(body, "forbidden", "standalone invalid Slack signature response")
+    assert_equal(bot.calls, [], "standalone invalid signature must not call bot")
+
+
+def test_standalone_slack_handler_accepts_valid_signature():
     slack, bot = load_slack_module()
 
-    body = slack.slack_handler({"text": "do you work in finance", "token": "wrong"})
+    body = slack.slack_handler(
+        signed_slack_event("do you work in finance"), now=1000
+    )
 
-    assert_equal(body, "forbidden", "standalone invalid Slack token response")
-    assert_equal(bot.calls, [], "standalone invalid Slack token must not call bot")
-
-
-def test_standalone_slack_handler_accepts_matching_token():
-    slack, bot = load_slack_module()
-
-    body = slack.slack_handler({"text": "do you work in finance", "token": "slack-secret"})
-
-    assert_equal(body, "bot: do you work in finance", "standalone valid Slack token response")
-    assert_equal(bot.calls, ["do you work in finance"], "standalone valid Slack token bot call")
+    assert_equal(body, "bot: do you work in finance", "standalone valid Slack signature response")
+    assert_equal(bot.calls, ["do you work in finance"], "standalone valid Slack signature bot call")
 
 
 def test_standalone_slack_handler_rejects_blank_text():
     slack, bot = load_slack_module()
 
-    body = slack.slack_handler({"text": "   ", "token": "slack-secret"})
+    body = slack.slack_handler(signed_slack_event("   "), now=1000)
 
     assert_equal(body, "missing text", "standalone blank Slack text response")
     assert_equal(bot.calls, [], "standalone blank Slack text must not call bot")
 
 
-def test_standalone_slack_handler_rejects_non_text_values():
-    for text_value in ({"message": "hello"}, b"hello"):
-        slack, bot = load_slack_module()
+def test_standalone_slack_handler_rejects_missing_text():
+    slack, bot = load_slack_module()
+    body_text = "command=%2Fvalleybot"
+    event = signed_slack_event("placeholder")
+    event["body"] = body_text
+    event["headers"]["X-Slack-Signature"] = slack_signature(
+        body_text, "1000"
+    )
 
-        body = slack.slack_handler({"text": text_value, "token": "slack-secret"})
+    body = slack.slack_handler(event, now=1000)
 
-        assert_equal(body, "missing text", "standalone non-text Slack text response")
-        assert_equal(bot.calls, [], "standalone non-text Slack text must not call bot")
+    assert_equal(body, "missing text", "standalone missing Slack text response")
+    assert_equal(bot.calls, [], "standalone missing Slack text must not call bot")
+
+
+def test_standalone_slack_handler_accepts_signed_base64_body():
+    slack, bot = load_slack_module()
+
+    body = slack.slack_handler(
+        signed_slack_event(
+            "  do you work in finance  ", base64_encoded=True
+        ),
+        now=1000,
+    )
+
+    assert_equal(body, "bot: do you work in finance", "base64 Slack response")
+    assert_equal(bot.calls, ["do you work in finance"], "base64 Slack bot call")
 
 
 def main():
@@ -1426,15 +1622,20 @@ def main():
         test_bot_logging_avoids_private_message_text,
         test_filtered_responses_use_reviewed_fallback,
         test_moderation_review_guide_is_auditable,
-        test_slack_command_requires_matching_token,
-        test_slack_command_accepts_matching_token,
+        test_slack_command_requires_valid_signature,
+        test_slack_command_accepts_valid_signature,
         test_slack_command_rejects_blank_text,
         test_slack_command_rejects_non_text_values,
         test_slack_command_trims_text_before_bot_call,
-        test_standalone_slack_handler_requires_matching_token,
-        test_standalone_slack_handler_accepts_matching_token,
+        test_slack_command_rejects_stale_and_future_timestamps,
+        test_slack_handlers_reject_oversized_bodies,
+        test_slack_signature_verifier_rejects_tampering_and_invalid_metadata,
+        test_slack_signing_secret_source_contracts,
+        test_standalone_slack_handler_requires_valid_signature,
+        test_standalone_slack_handler_accepts_valid_signature,
         test_standalone_slack_handler_rejects_blank_text,
-        test_standalone_slack_handler_rejects_non_text_values,
+        test_standalone_slack_handler_rejects_missing_text,
+        test_standalone_slack_handler_accepts_signed_base64_body,
     ]
     for test in tests:
         test()

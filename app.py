@@ -12,6 +12,7 @@ import hashlib
 import json
 import requests
 import settings
+from slack_auth import MAX_SLACK_REQUEST_BYTES, verify_slack_request
 
 debug(os.environ.get("BOTTLE_DEBUG", "").strip().lower() == "true")
 
@@ -51,8 +52,23 @@ def slack_handler():
     """
     Handler for slack
     """
-    token = request.forms.get('token')
-    if not secure_compare(token, settings.slack_token):
+    content_length = getattr(request, "content_length", None)
+    if content_length is not None and content_length > MAX_SLACK_REQUEST_BYTES:
+        response.status = 413
+        return "payload too large"
+    raw_body = request.body.read(MAX_SLACK_REQUEST_BYTES + 1)
+    if len(raw_body) > MAX_SLACK_REQUEST_BYTES:
+        response.status = 413
+        return "payload too large"
+    try:
+        request.body.seek(0)
+    except (AttributeError, IOError):
+        pass
+    if not verify_slack_request(
+            raw_body,
+            request.headers.get("X-Slack-Request-Timestamp"),
+            request.headers.get("X-Slack-Signature"),
+            settings.slack_signing_secret):
         response.status = 403
         return "forbidden"
 

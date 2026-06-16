@@ -7,6 +7,7 @@ PYTHON_FILES := \
 	bot_tests.py \
 	config.py \
 	settings.py \
+	slack_auth.py \
 	slack.py \
 	scripts/check_valleybot_contracts.py
 
@@ -27,7 +28,7 @@ prepare-corpora:
 
 test: prepare-corpora
 	PYTHONDONTWRITEBYTECODE=1 $(PYTHON) "$(ROOT)/scripts/check_valleybot_contracts.py"
-	cd "$(ROOT)" && env SLACK_TOKEN=test-slack-token MESSENGER_TOKEN=test-page-token MESSENGER_VERIFY_TOKEN=test-verify-token $(PYTHON) -m unittest bot_tests
+	cd "$(ROOT)" && env SLACK_SIGNING_SECRET=test-slack-signing-secret MESSENGER_TOKEN=test-page-token MESSENGER_VERIFY_TOKEN=test-verify-token $(PYTHON) -m unittest bot_tests
 
 build: lint
 

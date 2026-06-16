@@ -15,6 +15,7 @@ The current focus is:
 Priority:
 
 - Keep the service on supported Python 3 and current audited dependencies
+- Require Slack signing secret verification before command execution
 - Require authenticated Messenger POST payloads before event parsing
 - Bound unauthenticated Messenger request bodies before signature verification
 - Run the complete runtime suite across supported Python versions in CI

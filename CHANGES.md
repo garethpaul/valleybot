@@ -2,6 +2,9 @@
 
 ## 2026-06-16
 
+- Replaced deprecated Slack payload-token checks with Slack signing secret
+  verification, exact-body HMAC, five-minute timestamp freshness, and signed
+  API Gateway base64-body handling across both entry points.
 - Removed the client-controlled Messenger `debug` reply bypass so valid signed
   messages are processed regardless of unknown top-level fields.
 

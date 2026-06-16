@@ -1,13 +1,13 @@
 # Slack Signing-Secret Verification
 
-status: in_progress
+status: completed
 
 ## Context
 
-Both Slack entry points authenticate a caller-controlled form or event `token`.
-Slack signing secrets provide request-body integrity and replay-resistant
-timestamps, while the legacy verification-token check cannot prove the body or
-request time and is no longer an adequate webhook boundary.
+Before this change, both Slack entry points authenticated a caller-controlled
+form or event `token`. Slack signing secrets provide request-body integrity and
+replay-resistant timestamps, while the legacy verification-token check cannot
+prove the body or request time and is no longer an adequate webhook boundary.
 
 ## Priority
 
@@ -23,8 +23,9 @@ the full response-generation path.
   `v0:{timestamp}:{raw_body}` base string using constant-time comparison.
 - R3. Reject missing, malformed, future, or older-than-five-minute timestamps
   before command processing.
-- R4. Preserve the exact raw request body for signature verification before
-  form parsing, including API Gateway base64 bodies for the event handler.
+- R4. Preserve a bounded exact raw request body for signature verification
+  before form parsing, including API Gateway base64 bodies for the event
+  handler; reject bodies larger than 1 MiB.
 - R5. Keep invalid requests fail-closed and prevent `bot.respond` calls.
 - R6. Preserve valid command-text trimming and current response behavior after
   authentication.
@@ -81,4 +82,16 @@ completed verification evidence.
 
 ## Verification Completed
 
-Pending implementation and validation.
+- The complete dependency-free suite passed with 60 tests.
+- The complete pinned Bottle/WebTest suite passed with 34 tests.
+- The repository and external-directory `make verify` passed in an isolated
+  exact-requirements Python 3.12 environment.
+- An isolated disposable copy passed `make check`, including its cleanup
+  wrapper, without touching the preserved live worktree.
+- `uv pip check` passed for all 19 installed packages.
+- Ten isolated hostile mutations were rejected for the HMAC base string,
+  timestamp freshness, constant-time comparison, deprecated-token fallback,
+  base64 handling, Bottle and event body-size bounds, response-suppression
+  runtime coverage, guidance, and plan status.
+- Exact diff, generated-artifact, changed-line credential, dependency/workflow
+  drift, mode, and whitespace audits passed before commit.

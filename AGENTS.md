@@ -45,7 +45,8 @@
 
 ## Safety and gotchas
 
-- `SLACK_TOKEN` configures the Slack integration.
+- `SLACK_SIGNING_SECRET` configures Slack signing secret verification; unsigned,
+  stale, future, or tampered requests are rejected before bot execution.
 - `MESSENGER_TOKEN` configures Facebook Messenger API replies.
 - `MESSENGER_VERIFY_TOKEN` configures Messenger webhook verification; it falls back to `MESSENGER_TOKEN` for older deployments.
 - `REQUEST_TIMEOUT` optionally overrides outbound Messenger request timeout seconds; invalid, non-finite, or non-positive values fall back to `5.0`.

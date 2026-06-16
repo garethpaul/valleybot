@@ -55,7 +55,7 @@ The setup commands above are derived from repository files. Legacy mobile, Pytho
 ## Testing and Verification
 
 - `make verify` runs syntax checks and dependency-free Messenger and Slack
-  route contract checks, including Slack command token validation and Slack
+  route contract checks, including Slack signing secret verification and Slack
   command text validation, web chat text validation, web template escaping, bot
   JSON request validation, bot conversation log privacy, plus request timeout
   parsing checks. Slack command text, Messenger webhook object type, Messenger
@@ -98,7 +98,10 @@ When the required SDK or runtime is unavailable, use static checks and source re
 
 ## Configuration and Secrets
 
-- `SLACK_TOKEN` configures the Slack integration.
+- `SLACK_SIGNING_SECRET` configures Slack signing secret verification. Both
+  entry points reject unsigned, stale, future, or tampered request bodies
+  before bot execution and cap raw bodies at 1 MiB; the deprecated payload
+  verification token is not used.
 - `MESSENGER_TOKEN` configures Facebook Messenger API replies.
 - `MESSENGER_VERIFY_TOKEN` configures Messenger webhook verification; it falls back to `MESSENGER_TOKEN` for older deployments.
 - `MESSENGER_APP_SECRET` is required to validate the `X-Hub-Signature-256`
