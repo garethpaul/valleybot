@@ -127,16 +127,15 @@ def messenger_post():
         return "ok"
 
     # send message to get bot
-    if not data.get('debug'):
-        for sender, message, message_id in messages:
-            if message_id and not recent_messenger_message_ids.claim(message_id):
-                continue
-            try:
-                messenger_reply(sender, message)
-            except Exception:
-                if message_id:
-                    recent_messenger_message_ids.release(message_id)
-                raise
+    for sender, message, message_id in messages:
+        if message_id and not recent_messenger_message_ids.claim(message_id):
+            continue
+        try:
+            messenger_reply(sender, message)
+        except Exception:
+            if message_id:
+                recent_messenger_message_ids.release(message_id)
+            raise
 
     # must send back response quickly
     return "ok"

@@ -1,5 +1,10 @@
 # Changes
 
+## 2026-06-16
+
+- Removed the client-controlled Messenger `debug` reply bypass so valid signed
+  messages are processed regardless of unknown top-level fields.
+
 ## 2026-06-15
 
 - Anchored Make cleanup and verification to the loaded Makefile directory so

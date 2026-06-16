@@ -128,8 +128,9 @@ class TestFacebook(unittest.TestCase):
         """
         Setup the data for the test.
         """
+        app.recent_messenger_message_ids = app.RecentMessageIds(
+            app.MAX_RECENT_MESSENGER_MESSAGE_IDS)
         self.data = {'object': 'page',
-                     'debug': True,
                      'entry': [{'id': u'1115484138511624',
                                 'time': 1467905719502,
                                 'messaging': [{'message': {'seq': 159,
@@ -145,8 +146,32 @@ class TestFacebook(unittest.TestCase):
         """
         A test with a sample payload for the messenger bot.
         """
-        r = self.post_signed_json(self.data)
+        calls = []
+        original_reply = app.messenger_reply
+        app.messenger_reply = lambda sender, message: calls.append(
+            (sender, message))
+        try:
+            r = self.post_signed_json(self.data)
+        finally:
+            app.messenger_reply = original_reply
+
         self.assertEqual(r.status_int, 200)
+        self.assertEqual(calls, [(self.user_id, 'testing 123')])
+
+    def test_facebook_debug_field_does_not_suppress_reply(self):
+        calls = []
+        data = dict(self.data)
+        data['debug'] = True
+        original_reply = app.messenger_reply
+        app.messenger_reply = lambda sender, message: calls.append(
+            (sender, message))
+        try:
+            r = self.post_signed_json(data)
+        finally:
+            app.messenger_reply = original_reply
+
+        self.assertEqual(r.status_int, 200)
+        self.assertEqual(calls, [(self.user_id, 'testing 123')])
 
     def test_facebook_response(self):
         """
@@ -360,10 +385,19 @@ class TestFacebook(unittest.TestCase):
         self.assertEqual(r.status_int, 403)
 
     def test_facebook_webhook_accepts_json_content_type_parameters(self):
-        r = self.post_signed_json(
-            self.data,
-            content_type='Application/JSON; charset=UTF-8')
+        calls = []
+        original_reply = app.messenger_reply
+        app.messenger_reply = lambda sender, message: calls.append(
+            (sender, message))
+        try:
+            r = self.post_signed_json(
+                self.data,
+                content_type='Application/JSON; charset=UTF-8')
+        finally:
+            app.messenger_reply = original_reply
+
         self.assertEqual(r.status_int, 200)
+        self.assertEqual(calls, [(self.user_id, 'testing 123')])
 
     def test_facebook_webhook_rejects_non_json_content_type(self):
         body = json.dumps(self.data).encode('utf-8')

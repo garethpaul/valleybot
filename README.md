@@ -65,7 +65,8 @@ The setup commands above are derived from repository files. Legacy mobile, Pytho
   release their claim for recovery. Unsuccessful provider HTTP responses raise
   before reply content is accepted, allowing the webhook delivery to be
   retried. Signed webhook batches process up to 20 valid user messages in
-  payload order. Messenger POST bodies larger than 1 MiB are rejected with HTTP
+  payload order. Unknown top-level Messenger fields cannot suppress valid replies.
+  Messenger POST bodies larger than 1 MiB are rejected with HTTP
   413 before signature verification or JSON parsing. Generated responses that
   fail moderation use a reviewed generic fallback instead of failing a request.
   Messenger GET verification requires the exact `subscribe` mode after token

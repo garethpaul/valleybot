@@ -59,6 +59,7 @@ message-ID claim so a later provider delivery can retry the outbound reply.
 Each signed webhook processes at most 20 valid user messages in payload order,
 limiting outbound reply amplification while preserving per-message replay
 claims and failure release.
+Unknown top-level fields, including `debug`, do not suppress valid Messenger replies.
 
 For web services, APIs, sockets, or scraping workflows, prioritize reports involving authentication bypass, authorization errors, injection, server-side request forgery, unsafe deserialization, credential leakage, data exposure, or denial-of-service conditions. Use test accounts and minimal proof-of-concept traffic only.
 

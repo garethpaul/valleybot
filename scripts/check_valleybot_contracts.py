@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Dependency-free route contract checks for the legacy Bottle app."""
+import ast
 import importlib.util
 import hashlib
 import hmac
@@ -84,6 +85,9 @@ MAKEFILE_LOCATION_ROOT_PLAN_PATH = (
 )
 MESSENGER_REPLY_HTTP_STATUS_PLAN_PATH = (
     ROOT / "docs" / "plans" / "2026-06-15-messenger-reply-http-status.md"
+)
+MESSENGER_DEBUG_FIELD_PLAN_PATH = (
+    ROOT / "docs" / "plans" / "2026-06-16-messenger-debug-field.md"
 )
 
 
@@ -249,6 +253,23 @@ def assert_completed_plan(path, label):
     assert_true("make check" in plan_text, "{0} plan must document make check verification".format(label))
 
 
+def registered_main_tests(source):
+    tree = ast.parse(source)
+    for node in tree.body:
+        if isinstance(node, ast.FunctionDef) and node.name == "main":
+            for statement in node.body:
+                if (
+                        isinstance(statement, ast.Assign)
+                        and any(isinstance(target, ast.Name) and target.id == "tests"
+                                for target in statement.targets)
+                        and isinstance(statement.value, (ast.List, ast.Tuple))):
+                    return {
+                        element.id for element in statement.value.elts
+                        if isinstance(element, ast.Name)
+                    }
+    return set()
+
+
 def test_completed_plans_are_in_docs_plans():
     assert_completed_plan(WEBHOOK_PLAN_PATH, "webhook hardening")
     assert_completed_plan(STANDALONE_SLACK_PLAN_PATH, "standalone Slack token")
@@ -275,6 +296,7 @@ def test_completed_plans_are_in_docs_plans():
     assert_completed_plan(MESSENGER_CHALLENGE_ESCAPE_PLAN_PATH, "Messenger challenge escaping")
     assert_completed_plan(MAKEFILE_LOCATION_ROOT_PLAN_PATH, "Makefile location root")
     assert_completed_plan(MESSENGER_REPLY_HTTP_STATUS_PLAN_PATH, "Messenger reply HTTP status")
+    assert_completed_plan(MESSENGER_DEBUG_FIELD_PLAN_PATH, "Messenger debug field handling")
 
 
 def test_runtime_and_ci_contracts():
@@ -575,9 +597,9 @@ def test_messenger_verification_mode_source_contracts():
         "test_facebook_challenge_requires_subscribe_mode" in runtime_tests,
         "Bottle/WebTest must retain invalid Messenger mode coverage",
     )
-    main_source = checker_source.split("def main():", 1)[1]
     assert_true(
-        "\n        test_messenger_verification_requires_exact_subscribe_mode,\n" in main_source,
+        "test_messenger_verification_requires_exact_subscribe_mode"
+        in registered_main_tests(checker_source),
         "dependency-free Messenger mode coverage must remain registered",
     )
     guidance = "Messenger GET verification requires the exact `subscribe` mode"
@@ -835,7 +857,7 @@ def test_messenger_post_applies_replay_claims_per_batch_message():
     )
 
 
-def test_messenger_post_debug_batch_suppresses_all_replies():
+def test_messenger_post_debug_field_does_not_suppress_replies():
     app, request, _response, requests = load_app()
     request.json = messenger_batch_payload([
         messenger_event("user-1", "first", "mid-debug-1"),
@@ -844,7 +866,39 @@ def test_messenger_post_debug_batch_suppresses_all_replies():
 
     app.messenger_post()
 
-    assert_equal(requests.calls, [], "debug Messenger batch replies")
+    assert_equal(len(requests.calls), 2, "debug-field Messenger batch reply count")
+
+
+def test_messenger_debug_field_source_contracts():
+    source = (ROOT / "app.py").read_text(encoding="utf-8")
+    runtime_tests = (ROOT / "bot_tests.py").read_text(encoding="utf-8")
+    checker_source = Path(__file__).read_text(encoding="utf-8")
+
+    assert_true(
+        "data.get('debug')" not in source and 'data.get("debug")' not in source,
+        "Messenger request bodies must not control reply suppression",
+    )
+    assert_true(
+        "test_facebook_debug_field_does_not_suppress_reply" in runtime_tests,
+        "Bottle/WebTest must cover client-controlled debug fields",
+    )
+    assert_true(
+        "test_messenger_post_debug_field_does_not_suppress_replies"
+        in registered_main_tests(checker_source),
+        "dependency-free debug-field coverage must remain registered",
+    )
+
+    docs = {
+        "README.md": "Unknown top-level Messenger fields cannot suppress valid replies",
+        "SECURITY.md": "Unknown top-level fields, including `debug`, do not suppress valid Messenger replies",
+        "VISION.md": "Keep Messenger reply behavior independent of client-controlled debug fields",
+        "CHANGES.md": "Removed the client-controlled Messenger `debug` reply bypass",
+    }
+    for relative_path, phrase in docs.items():
+        assert_true(
+            phrase in (ROOT / relative_path).read_text(encoding="utf-8"),
+            "{0} must document Messenger debug-field handling".format(relative_path),
+        )
 
 
 def test_messenger_post_releases_only_failing_batch_claim():
@@ -1348,7 +1402,8 @@ def main():
         test_messenger_post_processes_valid_batch_in_payload_order,
         test_messenger_post_caps_valid_batch,
         test_messenger_post_applies_replay_claims_per_batch_message,
-        test_messenger_post_debug_batch_suppresses_all_replies,
+        test_messenger_post_debug_field_does_not_suppress_replies,
+        test_messenger_debug_field_source_contracts,
         test_messenger_post_releases_only_failing_batch_claim,
         test_messenger_post_suppresses_replayed_message_ids,
         test_messenger_post_preserves_messages_without_ids,
