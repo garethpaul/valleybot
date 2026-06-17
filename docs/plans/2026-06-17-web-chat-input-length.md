@@ -71,9 +71,12 @@ limits do not bound this public query parameter.
   contracts, five hostile mutations, and all 38 Bottle/unit tests.
 - The disposable environment passed `pip check`, and direct-pin `pip-audit`
   reported no known vulnerabilities.
-- Hosted `make check` and exact-head security results are required after push;
-  no production traffic, rate-limit behavior, or long-running TextBlob/NLTK
-  execution was exercised locally.
+- Hosted `make check` passed on implementation head
+  `8b3d051f7aba84a54394ef98d48a1520496b00a4` for push run `27723178362` and
+  pull-request run `27723187298`, including Python 3.10, 3.12, 3.14 and CodeQL
+  analysis lanes.
+- No production traffic, rate-limit behavior, or long-running TextBlob/NLTK
+  execution was exercised locally or in hosted verification.
 
 ## Scope Boundaries
 
