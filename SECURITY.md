@@ -77,6 +77,11 @@ second bot call and are released after processing failures. Separate workers,
 restarts, and evicted entries require a shared persistent replay store for
 global suppression.
 
+The public `/bot` route rejects chat input over 1,000 trimmed Unicode
+characters before TextBlob/NLTK processing. This limits per-request parser and
+tagger input but does not provide authentication, aggregate request-rate
+control, or a hard response-generation timeout.
+
 ## Dependency and Supply Chain Security
 
 Dependency updates should come from trusted package managers and should keep lockfiles in sync when lockfiles exist. Do not commit credentials, private keys, tokens, generated secrets, or machine-local configuration. If a vulnerability depends on a compromised package, typosquatting risk, insecure transitive dependency, or unsafe build step, include the package name, affected version, and the path through which it is used.

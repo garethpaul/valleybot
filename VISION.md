@@ -33,6 +33,7 @@ Priority:
 - Fail Messenger replies on provider HTTP errors so webhook retries remain
   recoverable
 - Reject empty web chat queries before response generation
+- Bound public web chat input before TextBlob/NLTK response generation
 - Render web chat replies as text instead of concatenated HTML
 - Reject malformed low-level bot JSON requests before response generation
 - Avoid logging raw inbound messages, generated responses, or extracted terms

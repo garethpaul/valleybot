@@ -21,6 +21,7 @@ app = Bottle()
 MAX_MESSENGER_WEBHOOK_BYTES = 1024 * 1024
 MAX_RECENT_MESSENGER_MESSAGE_IDS = 1024
 MAX_MESSENGER_MESSAGES_PER_WEBHOOK = 20
+MAX_WEB_CHAT_CHARACTERS = 1000
 
 
 class RecentMessageIds(object):
@@ -304,6 +305,9 @@ def chat():
     if not chat:
         response.status = 400
         return json.dumps({"error": "missing chat"})
+    if len(chat) > MAX_WEB_CHAT_CHARACTERS:
+        response.status = 413
+        return json.dumps({"error": "chat too long"})
 
     return json.dumps({"data": bot.respond(chat)})
 

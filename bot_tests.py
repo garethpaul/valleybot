@@ -99,6 +99,36 @@ class TestBottleApp(unittest.TestCase):
         response = test_app.get('/bot?chat=hello there tom')
         self.assertEqual(response.status_int, 200)
 
+    def test_bot_accepts_exact_character_limit(self):
+        original_respond = app.bot.respond
+        calls = []
+        app.bot.respond = lambda text: calls.append(text) or 'bounded response'
+        try:
+            response = test_app.get(
+                '/bot', params={'chat': 'x' * app.MAX_WEB_CHAT_CHARACTERS})
+        finally:
+            app.bot.respond = original_respond
+
+        self.assertEqual(response.status_int, 200)
+        self.assertEqual(response.json, {'data': 'bounded response'})
+        self.assertEqual(calls, ['x' * app.MAX_WEB_CHAT_CHARACTERS])
+
+    def test_bot_rejects_oversized_chat_before_response_generation(self):
+        original_respond = app.bot.respond
+        calls = []
+        app.bot.respond = lambda text: calls.append(text) or 'unexpected'
+        try:
+            response = test_app.get(
+                '/bot',
+                params={'chat': '界' * (app.MAX_WEB_CHAT_CHARACTERS + 1)},
+                expect_errors=True)
+        finally:
+            app.bot.respond = original_respond
+
+        self.assertEqual(response.status_int, 413)
+        self.assertEqual(response.json, {'error': 'chat too long'})
+        self.assertEqual(calls, [])
+
 
 class TestSlack(unittest.TestCase):
     def setUp(self):

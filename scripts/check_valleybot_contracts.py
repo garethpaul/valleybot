@@ -98,6 +98,9 @@ SLACK_SIGNING_SECRET_PLAN_PATH = (
 SLACK_REPLAY_PLAN_PATH = (
     ROOT / "docs" / "plans" / "2026-06-17-slack-request-replay-guard.md"
 )
+WEB_CHAT_LENGTH_PLAN_PATH = (
+    ROOT / "docs" / "plans" / "2026-06-17-web-chat-input-length.md"
+)
 
 
 class FakeBottle:
@@ -343,6 +346,7 @@ def test_completed_plans_are_in_docs_plans():
     assert_completed_plan(MESSENGER_DEBUG_FIELD_PLAN_PATH, "Messenger debug field handling")
     assert_completed_plan(SLACK_SIGNING_SECRET_PLAN_PATH, "Slack signing secret")
     assert_completed_plan(SLACK_REPLAY_PLAN_PATH, "Slack request replay guard")
+    assert_completed_plan(WEB_CHAT_LENGTH_PLAN_PATH, "web chat input length")
     registered = registered_main_tests(
         (ROOT / "scripts" / "check_valleybot_contracts.py").read_text(encoding="utf-8")
     )
@@ -1243,6 +1247,32 @@ def test_web_bot_trims_chat_before_bot_call():
     assert_equal(json.loads(body), {"data": "bot: hello valley"}, "trimmed web bot chat response")
 
 
+def test_web_bot_accepts_exact_character_limit():
+    app, request, response, _requests = load_app()
+    calls = []
+    request.query = {"chat": "x" * app.MAX_WEB_CHAT_CHARACTERS}
+    app.bot.respond = lambda text: calls.append(text) or "bounded response"
+
+    body = app.chat()
+
+    assert_equal(response.status, 200, "exact-limit web bot chat status")
+    assert_equal(json.loads(body), {"data": "bounded response"}, "exact-limit web bot response")
+    assert_equal(calls, ["x" * app.MAX_WEB_CHAT_CHARACTERS], "exact-limit bot call")
+
+
+def test_web_bot_rejects_oversized_chat_before_bot_call():
+    app, request, response, _requests = load_app()
+    calls = []
+    request.query = {"chat": "界" * (app.MAX_WEB_CHAT_CHARACTERS + 1)}
+    app.bot.respond = lambda text: calls.append(text) or "unexpected"
+
+    body = app.chat()
+
+    assert_equal(response.status, 413, "oversized web bot chat status")
+    assert_equal(json.loads(body), {"error": "chat too long"}, "oversized web bot response")
+    assert_equal(calls, [], "oversized web bot input must not call the bot")
+
+
 def test_web_template_escapes_chat_strings():
     template = (ROOT / "views" / "index.tpl").read_text()
 
@@ -1762,6 +1792,8 @@ def main():
         test_web_bot_rejects_missing_chat_query,
         test_web_bot_rejects_blank_chat_query,
         test_web_bot_trims_chat_before_bot_call,
+        test_web_bot_accepts_exact_character_limit,
+        test_web_bot_rejects_oversized_chat_before_bot_call,
         test_web_template_escapes_chat_strings,
         test_bot_logging_avoids_private_message_text,
         test_filtered_responses_use_reviewed_fallback,

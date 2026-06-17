@@ -2,6 +2,9 @@
 
 ## 2026-06-17
 
+- Limited public web-chat input to 1,000 trimmed Unicode characters before
+  TextBlob/NLTK response generation, with exact-boundary and hostile-mutation
+  coverage.
 - Suppressed repeated Slack signatures in each running process before a second
   bot call, while releasing failed claims for retry recovery.
 

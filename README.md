@@ -56,9 +56,9 @@ The setup commands above are derived from repository files. Legacy mobile, Pytho
 
 - `make verify` runs syntax checks and dependency-free Messenger and Slack
   route contract checks, including Slack signing secret verification and Slack
-  command text validation, web chat text validation, web template escaping, bot
-  JSON request validation, bot conversation log privacy, plus request timeout
-  parsing checks. Slack command text, Messenger webhook object type, Messenger
+  command text validation, bounded web chat text validation, web template
+  escaping, bot JSON request validation, bot conversation log privacy, plus
+  request timeout parsing checks. Slack command text, Messenger webhook object type, Messenger
   webhook text, and Messenger sender IDs must be valid before response
   generation. Recent Messenger message IDs are claimed in a bounded in-memory
   cache so provider retries do not send duplicate replies; outbound exceptions
@@ -92,6 +92,8 @@ The setup commands above are derived from repository files. Legacy mobile, Pytho
   process-local Messenger retry guard.
 - See `docs/plans/2026-06-13-messenger-batch-processing-bound.md` for ordered,
   capped multi-message webhook processing.
+- See `docs/plans/2026-06-17-web-chat-input-length.md` for the public web-chat
+  input boundary and its rate-limiting and execution-time limitations.
 - `python -m unittest bot_tests` runs the real Bottle/WebTest and bot suite.
 
 When the required SDK or runtime is unavailable, use static checks and source review first, then verify on a machine that has the matching platform toolchain.
@@ -112,6 +114,9 @@ When the required SDK or runtime is unavailable, use static checks and source re
 - `REQUEST_TIMEOUT` optionally overrides outbound Messenger request timeout
   seconds; invalid, non-finite, or non-positive values fall back to `5.0`.
 - Messenger webhook request bodies are limited to 1 MiB.
+- Public `/bot` chat input is limited to 1,000 trimmed Unicode characters
+  before TextBlob/NLTK response generation. This is a per-request input bound,
+  not authentication, aggregate rate limiting, or an execution timeout.
 - Verified Messenger GET challenges are HTML-escaped before response delivery,
   so hostile markup cannot become reflected page content.
 
