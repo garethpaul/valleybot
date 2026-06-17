@@ -4,10 +4,12 @@ from urllib.parse import parse_qs
 import settings
 import bot
 from slack_auth import MAX_SLACK_REQUEST_BYTES, verify_slack_request
+from slack_replay import RecentSlackSignatures
 
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
+recent_slack_signatures = RecentSlackSignatures()
 
 
 def slack_handler(event, now=None):
@@ -39,10 +41,11 @@ def slack_handler(event, now=None):
     if len(raw_body) > MAX_SLACK_REQUEST_BYTES:
         return "payload too large"
 
+    slack_signature = normalized_headers.get("x-slack-signature")
     if not verify_slack_request(
             raw_body,
             normalized_headers.get("x-slack-request-timestamp"),
-            normalized_headers.get("x-slack-signature"),
+            slack_signature,
             settings.slack_signing_secret,
             now=now):
         return "forbidden"
@@ -55,7 +58,13 @@ def slack_handler(event, now=None):
     if command_text is None:
         return "missing text"
 
-    return bot.respond(command_text)
+    if not recent_slack_signatures.claim(slack_signature):
+        return "ok"
+    try:
+        return bot.respond(command_text)
+    except Exception:
+        recent_slack_signatures.release(slack_signature)
+        raise
 
 
 def clean_text_value(value):

@@ -1,5 +1,10 @@
 # Changes
 
+## 2026-06-17
+
+- Suppressed repeated Slack signatures in each running process before a second
+  bot call, while releasing failed claims for retry recovery.
+
 ## 2026-06-16
 
 - Replaced deprecated Slack payload-token checks with Slack signing secret

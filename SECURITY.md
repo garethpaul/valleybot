@@ -72,6 +72,10 @@ five-minute timestamp window for both entry points. Unsigned, stale, future,
 tampered, or larger-than-1-MiB Slack commands must fail before bot execution;
 the deprecated payload verification token is not an authentication fallback.
 Authenticated command text must still be textual and nonblank.
+Bounded process-local Slack signature claims suppress exact retries before a
+second bot call and are released after processing failures. Separate workers,
+restarts, and evicted entries require a shared persistent replay store for
+global suppression.
 
 ## Dependency and Supply Chain Security
 

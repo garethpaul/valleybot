@@ -13,6 +13,7 @@ import json
 import requests
 import settings
 from slack_auth import MAX_SLACK_REQUEST_BYTES, verify_slack_request
+from slack_replay import RecentSlackSignatures
 
 debug(os.environ.get("BOTTLE_DEBUG", "").strip().lower() == "true")
 
@@ -44,6 +45,7 @@ class RecentMessageIds(object):
 
 recent_messenger_message_ids = RecentMessageIds(
     MAX_RECENT_MESSENGER_MESSAGE_IDS)
+recent_slack_signatures = RecentSlackSignatures()
 
 
 # SLACK INTEGRATION
@@ -64,10 +66,11 @@ def slack_handler():
         request.body.seek(0)
     except (AttributeError, IOError):
         pass
+    slack_signature = request.headers.get("X-Slack-Signature")
     if not verify_slack_request(
             raw_body,
             request.headers.get("X-Slack-Request-Timestamp"),
-            request.headers.get("X-Slack-Signature"),
+            slack_signature,
             settings.slack_signing_secret):
         response.status = 403
         return "forbidden"
@@ -77,7 +80,13 @@ def slack_handler():
         response.status = 400
         return "missing text"
 
-    return bot.respond(command_text)
+    if not recent_slack_signatures.claim(slack_signature):
+        return "ok"
+    try:
+        return bot.respond(command_text)
+    except Exception:
+        recent_slack_signatures.release(slack_signature)
+        raise
 
 
 # FACEBOOK MESSENGER INTEGRATION

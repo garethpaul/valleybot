@@ -101,6 +101,9 @@ class TestBottleApp(unittest.TestCase):
 
 
 class TestSlack(unittest.TestCase):
+    def setUp(self):
+        app.recent_slack_signatures = app.RecentSlackSignatures()
+
     def post_signed_slack(self, text, timestamp=None, signature=None,
                           expect_errors=False):
         body = urlencode({'text': text})
@@ -128,6 +131,40 @@ class TestSlack(unittest.TestCase):
         response = self.post_signed_slack('do you work in finance')
         self.assertEqual(response.status_int, 200)
         self.assertTrue(len(response.body) >= 1)
+
+    def test_slack_suppresses_replayed_signature(self):
+        original_respond = app.bot.respond
+        calls = []
+        app.bot.respond = lambda text: calls.append(text) or 'first response'
+        timestamp = int(time.time())
+        try:
+            first = self.post_signed_slack('replayed command', timestamp=timestamp)
+            second = self.post_signed_slack('replayed command', timestamp=timestamp)
+        finally:
+            app.bot.respond = original_respond
+
+        self.assertEqual(first.text, 'first response')
+        self.assertEqual(second.text, 'ok')
+        self.assertEqual(calls, ['replayed command'])
+
+    def test_slack_releases_signature_after_bot_failure(self):
+        original_respond = app.bot.respond
+        timestamp = int(time.time())
+
+        def fail(_text):
+            raise RuntimeError('bot failed')
+
+        app.bot.respond = fail
+        try:
+            failed = self.post_signed_slack(
+                'retry command', timestamp=timestamp, expect_errors=True)
+            self.assertEqual(failed.status_int, 500)
+            app.bot.respond = lambda text: 'recovered: ' + text
+            retry = self.post_signed_slack('retry command', timestamp=timestamp)
+        finally:
+            app.bot.respond = original_respond
+
+        self.assertEqual(retry.text, 'recovered: retry command')
 
     def test_slack_rejects_bad_signature_without_bot_call(self):
         """

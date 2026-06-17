@@ -95,6 +95,9 @@ MESSENGER_DEBUG_FIELD_PLAN_PATH = (
 SLACK_SIGNING_SECRET_PLAN_PATH = (
     ROOT / "docs" / "plans" / "2026-06-16-slack-signing-secret-verification.md"
 )
+SLACK_REPLAY_PLAN_PATH = (
+    ROOT / "docs" / "plans" / "2026-06-17-slack-request-replay-guard.md"
+)
 
 
 class FakeBottle:
@@ -339,6 +342,14 @@ def test_completed_plans_are_in_docs_plans():
     assert_completed_plan(MESSENGER_REPLY_HTTP_STATUS_PLAN_PATH, "Messenger reply HTTP status")
     assert_completed_plan(MESSENGER_DEBUG_FIELD_PLAN_PATH, "Messenger debug field handling")
     assert_completed_plan(SLACK_SIGNING_SECRET_PLAN_PATH, "Slack signing secret")
+    assert_completed_plan(SLACK_REPLAY_PLAN_PATH, "Slack request replay guard")
+    registered = registered_main_tests(
+        (ROOT / "scripts" / "check_valleybot_contracts.py").read_text(encoding="utf-8")
+    )
+    assert_true(
+        "test_slack_replay_source_contracts" in registered,
+        "Slack replay source contracts must remain registered",
+    )
 
 
 def test_runtime_and_ci_contracts():
@@ -1350,6 +1361,39 @@ def test_slack_command_accepts_valid_signature():
     assert_equal(response.status, 200, "valid Slack signature status")
 
 
+def test_slack_command_suppresses_replayed_signature():
+    app, request, response, _requests = load_app()
+    configure_slack_request(request, "replayed command", timestamp=int(time.time()))
+
+    first = app.slack_handler()
+    second = app.slack_handler()
+
+    assert_equal(first, "bot: replayed command", "first Slack replay response")
+    assert_equal(second, "ok", "duplicate Slack replay acknowledgement")
+    assert_equal(sys.modules["bot"].calls, ["replayed command"], "duplicate Slack bot calls")
+    assert_equal(response.status, 200, "duplicate Slack replay status")
+
+
+def test_slack_command_releases_replay_claim_after_failure():
+    app, request, _response, _requests = load_app()
+    configure_slack_request(request, "retry command", timestamp=int(time.time()))
+    original_respond = sys.modules["bot"].respond
+
+    def fail(_text):
+        raise RuntimeError("bot failed")
+
+    sys.modules["bot"].respond = fail
+    try:
+        app.slack_handler()
+        raise AssertionError("Slack bot failures must propagate")
+    except RuntimeError:
+        pass
+    finally:
+        sys.modules["bot"].respond = original_respond
+
+    assert_equal(app.slack_handler(), "bot: retry command", "Slack retry after bot failure")
+
+
 def test_slack_command_rejects_blank_text():
     app, request, response, _requests = load_app()
 
@@ -1536,6 +1580,106 @@ def test_standalone_slack_handler_accepts_valid_signature():
     assert_equal(bot.calls, ["do you work in finance"], "standalone valid Slack signature bot call")
 
 
+def test_standalone_slack_handler_suppresses_replayed_signature():
+    slack, bot = load_slack_module()
+    event = signed_slack_event("replayed command")
+
+    first = slack.slack_handler(event, now=1000)
+    second = slack.slack_handler(event, now=1000)
+
+    assert_equal(first, "bot: replayed command", "standalone first replay response")
+    assert_equal(second, "ok", "standalone duplicate replay acknowledgement")
+    assert_equal(bot.calls, ["replayed command"], "standalone duplicate bot calls")
+
+
+def test_standalone_slack_handler_releases_replay_claim_after_failure():
+    slack, bot = load_slack_module()
+    event = signed_slack_event("retry command")
+    original_respond = bot.respond
+
+    def fail(_text):
+        raise RuntimeError("bot failed")
+
+    bot.respond = fail
+    try:
+        slack.slack_handler(event, now=1000)
+        raise AssertionError("standalone Slack bot failures must propagate")
+    except RuntimeError:
+        pass
+    finally:
+        bot.respond = original_respond
+
+    assert_equal(
+        slack.slack_handler(event, now=1000),
+        "bot: retry command",
+        "standalone Slack retry after bot failure",
+    )
+
+
+def test_recent_slack_signatures_evicts_oldest_claim():
+    from slack_replay import RecentSlackSignatures
+
+    recent = RecentSlackSignatures(2)
+    assert_true(recent.claim("first"), "first Slack signature claim")
+    assert_true(recent.claim("second"), "second Slack signature claim")
+    assert_true(not recent.claim("first"), "duplicate Slack signature claim")
+    assert_true(recent.claim("third"), "third Slack signature claim")
+    assert_true(recent.claim("first"), "evicted Slack signature can be reclaimed")
+
+
+def test_slack_replay_source_contracts():
+    app_source = (ROOT / "app.py").read_text(encoding="utf-8")
+    adapter_source = (ROOT / "slack.py").read_text(encoding="utf-8")
+    replay_source = (ROOT / "slack_replay.py").read_text(encoding="utf-8")
+
+    for contract in (
+            "MAX_RECENT_SLACK_SIGNATURES = 1024",
+            "class RecentSlackSignatures(object):",
+            "with self._lock:",
+            "while len(self._signatures) > self.max_entries:",
+            "self._signatures.popitem(last=False)"):
+        assert_true(contract in replay_source, "missing Slack replay contract {0}".format(contract))
+
+    for source, label in ((app_source, "Bottle"), (adapter_source, "event")):
+        verify_position = source.index("if not verify_slack_request(")
+        text_position = source.index("command_text = clean_text_value", verify_position)
+        claim_position = source.index("recent_slack_signatures.claim(slack_signature)", text_position)
+        bot_position = source.index("bot.respond(command_text)", claim_position)
+        release_position = source.index("recent_slack_signatures.release(slack_signature)", bot_position)
+        assert_true(
+            verify_position < text_position < claim_position < bot_position < release_position,
+            "{0} Slack replay claim and release ordering".format(label),
+        )
+        assert_true(
+            'return "ok"' in source[claim_position:bot_position],
+            "{0} duplicate acknowledgement".format(label),
+        )
+
+    registered = registered_main_tests(
+        (ROOT / "scripts" / "check_valleybot_contracts.py").read_text(encoding="utf-8")
+    )
+    for test_name in (
+            "test_slack_command_suppresses_replayed_signature",
+            "test_slack_command_releases_replay_claim_after_failure",
+            "test_standalone_slack_handler_suppresses_replayed_signature",
+            "test_standalone_slack_handler_releases_replay_claim_after_failure",
+            "test_recent_slack_signatures_evicts_oldest_claim",
+            "test_slack_replay_source_contracts"):
+        assert_true(test_name in registered, "Slack replay test must remain registered: {0}".format(test_name))
+
+    docs = {
+        "README.md": "bounded process-local Slack signature claims",
+        "SECURITY.md": "Bounded process-local Slack signature claims",
+        "VISION.md": "Suppress repeated Slack signatures with bounded process-local state",
+        "CHANGES.md": "Suppressed repeated Slack signatures in each running process",
+    }
+    for relative_path, phrase in docs.items():
+        assert_true(
+            phrase in (ROOT / relative_path).read_text(encoding="utf-8"),
+            "{0} must document Slack replay suppression".format(relative_path),
+        )
+
+
 def test_standalone_slack_handler_rejects_blank_text():
     slack, bot = load_slack_module()
 
@@ -1624,6 +1768,8 @@ def main():
         test_moderation_review_guide_is_auditable,
         test_slack_command_requires_valid_signature,
         test_slack_command_accepts_valid_signature,
+        test_slack_command_suppresses_replayed_signature,
+        test_slack_command_releases_replay_claim_after_failure,
         test_slack_command_rejects_blank_text,
         test_slack_command_rejects_non_text_values,
         test_slack_command_trims_text_before_bot_call,
@@ -1631,8 +1777,12 @@ def main():
         test_slack_handlers_reject_oversized_bodies,
         test_slack_signature_verifier_rejects_tampering_and_invalid_metadata,
         test_slack_signing_secret_source_contracts,
+        test_slack_replay_source_contracts,
         test_standalone_slack_handler_requires_valid_signature,
         test_standalone_slack_handler_accepts_valid_signature,
+        test_standalone_slack_handler_suppresses_replayed_signature,
+        test_standalone_slack_handler_releases_replay_claim_after_failure,
+        test_recent_slack_signatures_evicts_oldest_claim,
         test_standalone_slack_handler_rejects_blank_text,
         test_standalone_slack_handler_rejects_missing_text,
         test_standalone_slack_handler_accepts_signed_base64_body,

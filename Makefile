@@ -8,6 +8,7 @@ PYTHON_FILES := \
 	config.py \
 	settings.py \
 	slack_auth.py \
+	slack_replay.py \
 	slack.py \
 	scripts/check_valleybot_contracts.py
 

@@ -102,6 +102,9 @@ When the required SDK or runtime is unavailable, use static checks and source re
   entry points reject unsigned, stale, future, or tampered request bodies
   before bot execution and cap raw bodies at 1 MiB; the deprecated payload
   verification token is not used.
+- Verified commands use bounded process-local Slack signature claims so an
+  exact retry does not call the bot twice; separate processes still require a
+  shared replay store for global suppression.
 - `MESSENGER_TOKEN` configures Facebook Messenger API replies.
 - `MESSENGER_VERIFY_TOKEN` configures Messenger webhook verification; it falls back to `MESSENGER_TOKEN` for older deployments.
 - `MESSENGER_APP_SECRET` is required to validate the `X-Hub-Signature-256`
@@ -170,6 +173,8 @@ When the required SDK or runtime is unavailable, use static checks and source re
   messages without hiding later user messages in the same webhook payload.
 - See `docs/plans/2026-06-15-messenger-reply-http-status.md` for provider HTTP
   failure handling and replay-claim recovery.
+- See `docs/plans/2026-06-17-slack-request-replay-guard.md` for bounded
+  process-local Slack signature claims and failure recovery.
 
 ## Contributing
 
