@@ -283,6 +283,30 @@ def load_settings_with_request_timeout(value):
             os.environ["REQUEST_TIMEOUT"] = original
 
 
+def load_settings_without_messenger_verify_token():
+    original_messenger_token = os.environ.get("MESSENGER_TOKEN")
+    original_verify_token = os.environ.get("MESSENGER_VERIFY_TOKEN")
+    os.environ["MESSENGER_TOKEN"] = "page-access-token"
+    os.environ.pop("MESSENGER_VERIFY_TOKEN", None)
+
+    try:
+        spec = importlib.util.spec_from_file_location(
+            "valleybot_settings_missing_verify_token", str(ROOT / "settings.py")
+        )
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        return module.messenger_token, module.messenger_verify_token
+    finally:
+        if original_messenger_token is None:
+            os.environ.pop("MESSENGER_TOKEN", None)
+        else:
+            os.environ["MESSENGER_TOKEN"] = original_messenger_token
+        if original_verify_token is None:
+            os.environ.pop("MESSENGER_VERIFY_TOKEN", None)
+        else:
+            os.environ["MESSENGER_VERIFY_TOKEN"] = original_verify_token
+
+
 def assert_equal(actual, expected, label):
     if actual != expected:
         raise AssertionError("{0}: expected {1!r}, got {2!r}".format(label, expected, actual))
@@ -1193,6 +1217,32 @@ def test_request_timeout_defaults_for_invalid_env():
         assert_equal(timeout, 5.0, "invalid REQUEST_TIMEOUT env {0!r}".format(value))
 
 
+def test_messenger_verify_token_missing_fails_closed_without_page_token_fallback():
+    messenger_token, verify_token = load_settings_without_messenger_verify_token()
+
+    assert_equal(messenger_token, "page-access-token", "Messenger page token")
+    assert_equal(verify_token, "", "missing Messenger verify token")
+    assert_true(
+        verify_token != messenger_token,
+        "Messenger verify token must not fall back to the page access token",
+    )
+
+    settings_source = (ROOT / "settings.py").read_text(encoding="utf-8")
+    assert_true(
+        "os.environ.get('MESSENGER_VERIFY_TOKEN', messenger_token)" not in settings_source,
+        "Messenger verify token fallback must not return",
+    )
+    assert_true(
+        "os.environ.get('MESSENGER_VERIFY_TOKEN', '')" in settings_source,
+        "missing Messenger verify token must fail closed",
+    )
+    readme = (ROOT / "README.md").read_text(encoding="utf-8")
+    assert_true(
+        "never fall back to `MESSENGER_TOKEN`" in readme,
+        "README must document Messenger verify token fail-closed behavior",
+    )
+
+
 def test_bot_json_request_rejects_invalid_or_blank_payloads():
     bot, calls = load_bot_module()
 
@@ -1787,6 +1837,7 @@ def main():
         test_messenger_reply_http_status_source_contracts,
         test_request_timeout_accepts_positive_float_env,
         test_request_timeout_defaults_for_invalid_env,
+        test_messenger_verify_token_missing_fails_closed_without_page_token_fallback,
         test_bot_json_request_rejects_invalid_or_blank_payloads,
         test_bot_json_request_trims_data_before_chatback,
         test_web_bot_rejects_missing_chat_query,

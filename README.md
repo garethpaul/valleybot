@@ -108,7 +108,8 @@ When the required SDK or runtime is unavailable, use static checks and source re
   exact retry does not call the bot twice; separate processes still require a
   shared replay store for global suppression.
 - `MESSENGER_TOKEN` configures Facebook Messenger API replies.
-- `MESSENGER_VERIFY_TOKEN` configures Messenger webhook verification; it falls back to `MESSENGER_TOKEN` for older deployments.
+- `MESSENGER_VERIFY_TOKEN` configures Messenger webhook verification. Missing
+  values fail closed and never fall back to `MESSENGER_TOKEN`.
 - `MESSENGER_APP_SECRET` is required to validate the `X-Hub-Signature-256`
   HMAC on Messenger POST payloads.
 - `REQUEST_TIMEOUT` optionally overrides outbound Messenger request timeout

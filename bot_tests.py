@@ -2,6 +2,7 @@ import unittest
 import os
 import hashlib
 import hmac
+import importlib.util
 import time
 from urllib.parse import urlencode
 
@@ -128,6 +129,36 @@ class TestBottleApp(unittest.TestCase):
         self.assertEqual(response.status_int, 413)
         self.assertEqual(response.json, {'error': 'chat too long'})
         self.assertEqual(calls, [])
+
+
+class TestSettings(unittest.TestCase):
+
+    def test_messenger_verify_token_missing_does_not_fallback_to_page_token(self):
+        original_messenger_token = os.environ.get('MESSENGER_TOKEN')
+        original_verify_token = os.environ.get('MESSENGER_VERIFY_TOKEN')
+        os.environ['MESSENGER_TOKEN'] = 'page-access-token'
+        os.environ.pop('MESSENGER_VERIFY_TOKEN', None)
+        try:
+            spec = importlib.util.spec_from_file_location(
+                'valleybot_settings_missing_verify_token',
+                os.path.join(os.getcwd(), 'settings.py'))
+            module = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(module)
+        finally:
+            if original_messenger_token is None:
+                os.environ.pop('MESSENGER_TOKEN', None)
+            else:
+                os.environ['MESSENGER_TOKEN'] = original_messenger_token
+            if original_verify_token is None:
+                os.environ.pop('MESSENGER_VERIFY_TOKEN', None)
+            else:
+                os.environ['MESSENGER_VERIFY_TOKEN'] = original_verify_token
+
+        self.assertEqual(module.messenger_token, 'page-access-token')
+        self.assertEqual(module.messenger_verify_token, '')
+        self.assertNotEqual(
+            module.messenger_verify_token,
+            module.messenger_token)
 
 
 class TestSlack(unittest.TestCase):
