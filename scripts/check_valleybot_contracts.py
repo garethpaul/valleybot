@@ -1241,6 +1241,11 @@ def test_messenger_verify_token_missing_fails_closed_without_page_token_fallback
         "never fall back to `MESSENGER_TOKEN`" in readme,
         "README must document Messenger verify token fail-closed behavior",
     )
+    agent_guidance = (ROOT / "AGENTS.md").read_text(encoding="utf-8")
+    assert_true(
+        "never fall back to `MESSENGER_TOKEN`" in agent_guidance,
+        "AGENTS.md must document Messenger verify token fail-closed behavior",
+    )
 
 
 def test_bot_json_request_rejects_invalid_or_blank_payloads():
