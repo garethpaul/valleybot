@@ -1,5 +1,5 @@
 PYTHON ?= python3
-ROOT := $(abspath $(dir $(lastword $(MAKEFILE_LIST))))
+override ROOT := $(abspath $(dir $(lastword $(MAKEFILE_LIST))))
 
 PYTHON_FILES := \
 	app.py \
@@ -7,13 +7,16 @@ PYTHON_FILES := \
 	bot_tests.py \
 	config.py \
 	settings.py \
+	slack_auth.py \
+	slack_replay.py \
 	slack.py \
-	scripts/check_valleybot_contracts.py
+	scripts/check_valleybot_contracts.py \
+	scripts/test_web_chat_length_contract.py
 
 .PHONY: clean lint prepare-corpora test build verify check
 
 check: clean verify
-	$(MAKE) clean
+	$(MAKE) -C "$(ROOT)" clean
 
 clean:
 	find "$(ROOT)" -type f \( -name '*.pyc' -o -name '*.pyo' \) -delete
@@ -27,7 +30,8 @@ prepare-corpora:
 
 test: prepare-corpora
 	PYTHONDONTWRITEBYTECODE=1 $(PYTHON) "$(ROOT)/scripts/check_valleybot_contracts.py"
-	cd "$(ROOT)" && env SLACK_TOKEN=test-slack-token MESSENGER_TOKEN=test-page-token MESSENGER_VERIFY_TOKEN=test-verify-token $(PYTHON) -m unittest bot_tests
+	PYTHONDONTWRITEBYTECODE=1 $(PYTHON) "$(ROOT)/scripts/test_web_chat_length_contract.py"
+	cd "$(ROOT)" && env SLACK_SIGNING_SECRET=test-slack-signing-secret MESSENGER_TOKEN=test-page-token MESSENGER_VERIFY_TOKEN=test-verify-token $(PYTHON) -m unittest bot_tests
 
 build: lint
 

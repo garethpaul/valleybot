@@ -1,5 +1,57 @@
 # Changes
 
+## 2026-06-17
+
+- Limited public web-chat input to 1,000 trimmed Unicode characters before
+  TextBlob/NLTK response generation, with exact-boundary and hostile-mutation
+  coverage.
+- Suppressed repeated Slack signatures in each running process before a second
+  bot call, while releasing failed claims for retry recovery.
+
+## 2026-06-16
+
+- Replaced deprecated Slack payload-token checks with Slack signing secret
+  verification, exact-body HMAC, five-minute timestamp freshness, and signed
+  API Gateway base64-body handling across both entry points.
+- Removed the client-controlled Messenger `debug` reply bypass so valid signed
+  messages are processed regardless of unknown top-level fields.
+
+## 2026-06-15
+
+- Anchored Make cleanup and verification to the loaded Makefile directory so
+  external `make -f` invocations cannot target the caller's filesystem tree.
+- Rejected unsuccessful Messenger provider responses before accepting reply
+  content, allowing failed message-ID claims to be retried.
+- Messenger GET verification requires the exact `subscribe` mode before an
+  authenticated challenge is returned.
+
+## 2026-06-14
+
+- Escaped verified Messenger webhook challenges to close the reflected-XSS
+  finding reported by CodeQL.
+- Added pinned, least-privilege CodeQL analysis for GitHub Actions and Python
+  to every hosted push and pull request.
+- Added a mandatory human moderation checklist for response templates, blocked
+  terms, reviewed fallbacks, regression boundaries, channel consistency,
+  synthetic fixtures, reviewer evidence, and unresolved concerns.
+
+## 2026-06-13
+
+- Processed up to 20 valid Messenger user messages per signed webhook in payload
+  order while preserving per-message replay claims and failure release.
+- Added a bounded, thread-safe recent Messenger message-ID cache to suppress
+  duplicate replies from retried webhook deliveries.
+- Released replay claims after outbound exceptions and preserved messages without
+  usable IDs, debug payloads, and echo filtering.
+- Made external-directory checks safe for repository paths containing spaces by
+  selecting the repository with GNU Make's `-C` option.
+
+## 2026-06-12
+
+- Required an exact `application/json` media type for Messenger POST webhooks,
+  with case-insensitive parameter support and fail-closed 415 responses.
+- Added dependency-free and Bottle/WebTest media-type regression coverage.
+
 ## 2026-06-10
 
 - Contained generated-response filter rejections and returned a reviewed generic
@@ -14,6 +66,12 @@
 - Made the real unittest/WebTest suite mandatory in `make check`.
 - Disabled Bottle debug mode by default while preserving explicit local opt-in.
 - Required SHA-256 Messenger webhook signatures before parsing POST events.
+- Added a pinned GitHub Actions matrix that runs `make check` on every branch,
+  pull request, and manual dispatch with credential-free checkout.
+- Extended the contract checker to require the CI workflow and completed CI
+  plan, including verification from outside the repository directory.
+- Fixed recursive cleanup so external-working-directory checks use the
+  repository Makefile instead of the caller's directory.
 
 ## 2026-06-09
 

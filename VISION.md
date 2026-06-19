@@ -15,6 +15,8 @@ The current focus is:
 Priority:
 
 - Keep the service on supported Python 3 and current audited dependencies
+- Require Slack signing secret verification before command execution
+- Suppress repeated Slack signatures with bounded process-local state
 - Require authenticated Messenger POST payloads before event parsing
 - Bound unauthenticated Messenger request bodies before signature verification
 - Run the complete runtime suite across supported Python versions in CI
@@ -24,19 +26,33 @@ Priority:
 - Reject blank or non-text channel commands before response generation
 - Reject non-page Messenger webhook payloads before event parsing
 - Reject blank or non-text Messenger messages before response generation
+- Suppress duplicate Messenger replies from retried message IDs with bounded
+  process-local state
+- Process Messenger message batches in order with a fixed per-webhook cap
+- Keep Messenger reply behavior independent of client-controlled debug fields
+- Fail Messenger replies on provider HTTP errors so webhook retries remain
+  recoverable
 - Reject empty web chat queries before response generation
+- Bound public web chat input before TextBlob/NLTK response generation
 - Render web chat replies as text instead of concatenated HTML
 - Reject malformed low-level bot JSON requests before response generation
 - Avoid logging raw inbound messages, generated responses, or extracted terms
   by default
 - Keep outbound request timeout configuration bounded and non-crashing
 - Maintain the response filter and tests
+- Keep the dependency-free `make check` baseline running in GitHub Actions
+- Keep pinned CodeQL coverage for GitHub Actions and Python with job-scoped
+  upload permission
+- Escape verified Messenger challenge responses before reflecting them
+- Messenger GET verification requires the exact `subscribe` mode after token
+  authentication
 - Return reviewed fallback text when a generated response fails moderation
 - Avoid expanding stereotype content without review
+- Require auditable human review of response templates, blocked terms,
+  fallbacks, fixtures, channel consistency, privacy, and unresolved concerns
 
 Next priorities:
 
-- Add clearer moderation and content-review guidance
 - Document Python version and NLTK/TextBlob setup
 - Separate deployment packaging from bot behavior changes
 

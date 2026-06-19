@@ -1,7 +1,10 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 from sys import argv
+from collections import OrderedDict
+from html import escape
 import os
+import threading
 from bottle import Bottle, template, request, response, debug
 import bot
 import hmac
@@ -9,11 +12,41 @@ import hashlib
 import json
 import requests
 import settings
+from slack_auth import MAX_SLACK_REQUEST_BYTES, verify_slack_request
+from slack_replay import RecentSlackSignatures
 
 debug(os.environ.get("BOTTLE_DEBUG", "").strip().lower() == "true")
 
 app = Bottle()
 MAX_MESSENGER_WEBHOOK_BYTES = 1024 * 1024
+MAX_RECENT_MESSENGER_MESSAGE_IDS = 1024
+MAX_MESSENGER_MESSAGES_PER_WEBHOOK = 20
+MAX_WEB_CHAT_CHARACTERS = 1000
+
+
+class RecentMessageIds(object):
+    def __init__(self, max_entries):
+        self.max_entries = max_entries
+        self._ids = OrderedDict()
+        self._lock = threading.Lock()
+
+    def claim(self, message_id):
+        with self._lock:
+            if message_id in self._ids:
+                return False
+            self._ids[message_id] = None
+            while len(self._ids) > self.max_entries:
+                self._ids.popitem(last=False)
+            return True
+
+    def release(self, message_id):
+        with self._lock:
+            self._ids.pop(message_id, None)
+
+
+recent_messenger_message_ids = RecentMessageIds(
+    MAX_RECENT_MESSENGER_MESSAGE_IDS)
+recent_slack_signatures = RecentSlackSignatures()
 
 
 # SLACK INTEGRATION
@@ -22,8 +55,24 @@ def slack_handler():
     """
     Handler for slack
     """
-    token = request.forms.get('token')
-    if not secure_compare(token, settings.slack_token):
+    content_length = getattr(request, "content_length", None)
+    if content_length is not None and content_length > MAX_SLACK_REQUEST_BYTES:
+        response.status = 413
+        return "payload too large"
+    raw_body = request.body.read(MAX_SLACK_REQUEST_BYTES + 1)
+    if len(raw_body) > MAX_SLACK_REQUEST_BYTES:
+        response.status = 413
+        return "payload too large"
+    try:
+        request.body.seek(0)
+    except (AttributeError, IOError):
+        pass
+    slack_signature = request.headers.get("X-Slack-Signature")
+    if not verify_slack_request(
+            raw_body,
+            request.headers.get("X-Slack-Request-Timestamp"),
+            slack_signature,
+            settings.slack_signing_secret):
         response.status = 403
         return "forbidden"
 
@@ -32,7 +81,13 @@ def slack_handler():
         response.status = 400
         return "missing text"
 
-    return bot.respond(command_text)
+    if not recent_slack_signatures.claim(slack_signature):
+        return "ok"
+    try:
+        return bot.respond(command_text)
+    except Exception:
+        recent_slack_signatures.release(slack_signature)
+        raise
 
 
 # FACEBOOK MESSENGER INTEGRATION
@@ -47,10 +102,14 @@ def messenger_webhook():
     if not secure_compare(verify_token, expected_token):
         response.status = 403
         return "forbidden"
+    verification_mode = request.query.get("hub.mode")
+    if verification_mode != "subscribe":
+        response.status = 400
+        return "invalid mode"
     if not challenge:
         response.status = 400
         return "missing challenge"
-    return challenge
+    return escape(challenge, quote=True)
 
 
 @app.post('/messenger/webhook')
@@ -62,6 +121,10 @@ def messenger_post():
     if content_length is not None and content_length > MAX_MESSENGER_WEBHOOK_BYTES:
         response.status = 413
         return "payload too large"
+
+    if not is_json_content_type(request.headers.get("Content-Type")):
+        response.status = 415
+        return "unsupported media type"
 
     raw_body = request.body.read(MAX_MESSENGER_WEBHOOK_BYTES + 1)
     if len(raw_body) > MAX_MESSENGER_WEBHOOK_BYTES:
@@ -85,16 +148,31 @@ def messenger_post():
         response.status = 400
         return "invalid payload"
 
-    sender, message = parse_messenger_message(data)
-    if not (sender and message):
+    messages = parse_messenger_messages(data)
+    if not messages:
         return "ok"
 
     # send message to get bot
-    if not data.get('debug'):
-        messenger_reply(sender, message)
+    for sender, message, message_id in messages:
+        if message_id and not recent_messenger_message_ids.claim(message_id):
+            continue
+        try:
+            messenger_reply(sender, message)
+        except Exception:
+            if message_id:
+                recent_messenger_message_ids.release(message_id)
+            raise
 
     # must send back response quickly
     return "ok"
+
+
+def is_json_content_type(value):
+    if not isinstance(value, str):
+        return False
+
+    media_type = value.split(";", 1)[0].strip().lower()
+    return media_type == "application/json"
 
 
 def verify_messenger_signature(raw_body, signature, app_secret):
@@ -148,14 +226,15 @@ def clean_text_value(value):
     return value or None
 
 
-def parse_messenger_message(data):
+def parse_messenger_messages(data):
     """
-    Return the first sender/text pair from a Messenger payload if present.
+    Return a bounded list of sender/text/message-ID tuples in payload order.
     """
     entries = data.get('entry')
     if not isinstance(entries, list):
-        return None, None
+        return []
 
+    messages = []
     for entry in entries:
         if not isinstance(entry, dict):
             continue
@@ -165,19 +244,30 @@ def parse_messenger_message(data):
         for event in events:
             if not isinstance(event, dict):
                 continue
-            sender = event.get('sender') or {}
-            message = event.get('message') or {}
+            sender = event.get('sender')
+            message = event.get('message')
+            if not isinstance(sender, dict) or not isinstance(message, dict):
+                continue
+            if message.get('is_echo') is True:
+                continue
             sender_id = sender.get('id')
             message_text = message.get('text')
+            message_id = message.get('mid')
             try:
                 sender_id = sender_id.strip()
                 message_text = message_text.strip()
             except AttributeError:
                 continue
+            try:
+                message_id = message_id.strip()
+            except AttributeError:
+                message_id = None
             if sender_id and message_text:
-                return sender_id, message_text
+                messages.append((sender_id, message_text, message_id or None))
+                if len(messages) >= MAX_MESSENGER_MESSAGES_PER_WEBHOOK:
+                    return messages
 
-    return None, None
+    return messages
 
 
 def messenger_reply(user_id, msg):
@@ -194,6 +284,7 @@ def messenger_reply(user_id, msg):
         json=data,
         headers=headers,
         timeout=settings.request_timeout)
+    resp.raise_for_status()
     return resp.content
 
 
@@ -214,6 +305,9 @@ def chat():
     if not chat:
         response.status = 400
         return json.dumps({"error": "missing chat"})
+    if len(chat) > MAX_WEB_CHAT_CHARACTERS:
+        response.status = 413
+        return json.dumps({"error": "chat too long"})
 
     return json.dumps({"data": bot.respond(chat)})
 

@@ -12,6 +12,7 @@ This README is based on the checked-in source, manifests, scripts, and repositor
 ## Repository Contents
 
 - `README.md` - project overview and local usage notes
+- `.github/workflows/check.yml` - GitHub Actions baseline for `make check`
 - `requirements.txt` - Python dependency or packaging metadata
 - `app.json`
 - `app.py`
@@ -54,40 +55,77 @@ The setup commands above are derived from repository files. Legacy mobile, Pytho
 ## Testing and Verification
 
 - `make verify` runs syntax checks and dependency-free Messenger and Slack
-  route contract checks, including Slack command token validation and Slack
-  command text validation, web chat text validation, web template escaping, bot
-  JSON request validation, bot conversation log privacy, plus request timeout
-  parsing checks. Slack command text, Messenger webhook object type, Messenger
+  route contract checks, including Slack signing secret verification and Slack
+  command text validation, bounded web chat text validation, web template
+  escaping, bot JSON request validation, bot conversation log privacy, plus
+  request timeout parsing checks. Slack command text, Messenger webhook object type, Messenger
   webhook text, and Messenger sender IDs must be valid before response
-  generation. Messenger POST bodies larger than 1 MiB are rejected with HTTP
+  generation. Recent Messenger message IDs are claimed in a bounded in-memory
+  cache so provider retries do not send duplicate replies; outbound exceptions
+  release their claim for recovery. Unsuccessful provider HTTP responses raise
+  before reply content is accepted, allowing the webhook delivery to be
+  retried. Signed webhook batches process up to 20 valid user messages in
+  payload order. Unknown top-level Messenger fields cannot suppress valid replies.
+  Messenger POST bodies larger than 1 MiB are rejected with HTTP
   413 before signature verification or JSON parsing. Generated responses that
   fail moderation use a reviewed generic fallback instead of failing a request.
+  Messenger GET verification requires the exact `subscribe` mode after token
+  authentication and before an escaped challenge is returned.
 - `make check` runs `make verify` with bytecode cleanup before and after.
+  The Makefile derives the repository root from its own location, so the same
+  gate can run from an external working directory with
+  `make -f /path/to/valleybot/Makefile check`.
 - `make prepare-corpora` installs the current TextBlob tokenizer and tagger
   data into the existing project-local `nltk_data` directory. Heroku runs the
   same step through `bin/post_compile`.
 - `python scripts/check_valleybot_contracts.py` runs just the webhook and token-handling contracts.
 - GitHub Actions installs dependencies and runs the complete gate on Python
   3.10, 3.12, and 3.14 on Ubuntu 24.04 with read-only permissions, immutable
-  action pins, and cancellation for superseded runs.
+  action pins, credential-free checkout, cancellation for superseded runs, and
+  verification from outside the repository directory.
+- A separate pinned CodeQL job analyzes GitHub Actions and Python. Global
+  permissions remain read-only; only that job receives the
+  `security-events: write` permission needed to upload results.
 - Completed maintenance plans live under `docs/plans` and are checked by
   `make check`.
+- See `docs/plans/2026-06-13-messenger-message-replay-guard.md` for the bounded
+  process-local Messenger retry guard.
+- See `docs/plans/2026-06-13-messenger-batch-processing-bound.md` for ordered,
+  capped multi-message webhook processing.
+- See `docs/plans/2026-06-17-web-chat-input-length.md` for the public web-chat
+  input boundary and its rate-limiting and execution-time limitations.
 - `python -m unittest bot_tests` runs the real Bottle/WebTest and bot suite.
 
 When the required SDK or runtime is unavailable, use static checks and source review first, then verify on a machine that has the matching platform toolchain.
 
 ## Configuration and Secrets
 
-- `SLACK_TOKEN` configures the Slack integration.
+- `SLACK_SIGNING_SECRET` configures Slack signing secret verification. Both
+  entry points reject unsigned, stale, future, or tampered request bodies
+  before bot execution and cap raw bodies at 1 MiB; the deprecated payload
+  verification token is not used.
+- Verified commands use bounded process-local Slack signature claims so an
+  exact retry does not call the bot twice; separate processes still require a
+  shared replay store for global suppression.
 - `MESSENGER_TOKEN` configures Facebook Messenger API replies.
-- `MESSENGER_VERIFY_TOKEN` configures Messenger webhook verification; it falls back to `MESSENGER_TOKEN` for older deployments.
+- `MESSENGER_VERIFY_TOKEN` configures Messenger webhook verification. Missing
+  values fail closed and never fall back to `MESSENGER_TOKEN`.
 - `MESSENGER_APP_SECRET` is required to validate the `X-Hub-Signature-256`
   HMAC on Messenger POST payloads.
 - `REQUEST_TIMEOUT` optionally overrides outbound Messenger request timeout
   seconds; invalid, non-finite, or non-positive values fall back to `5.0`.
 - Messenger webhook request bodies are limited to 1 MiB.
+- Public `/bot` chat input is limited to 1,000 trimmed Unicode characters
+  before TextBlob/NLTK response generation. This is a per-request input bound,
+  not authentication, aggregate rate limiting, or an execution timeout.
+- Verified Messenger GET challenges are HTML-escaped before response delivery,
+  so hostile markup cannot become reflected page content.
 
 ## Security and Privacy Notes
+
+- See `MODERATION.md` for the mandatory human review checklist covering
+  response templates, blocked terms, fallbacks, regression fixtures, channel
+  consistency, private-data exclusions, and review evidence.
 
 - Review changes touching authentication or token handling; examples from the scan include nltk_data/corpora/movie_reviews/neg/cv000_29416.txt, nltk_data/corpora/movie_reviews/neg/cv067_21192.txt, nltk_data/corpora/movie_reviews/neg/cv074_7188.txt, nltk_data/corpora/movie_reviews/neg/cv144_5010.txt, and 3 more.
 - Review changes touching network requests, sockets, or service endpoints; examples from the scan include app.json, app.py, docs/bugs/p2-python-http-call-without-timeout-a07c6a4bb0ee865f.md, nltk_data/corpora/conll2000/test.txt, and 5 more.
@@ -121,12 +159,28 @@ When the required SDK or runtime is unavailable, use static checks and source re
   rejecting non-page Messenger webhook payloads before event parsing.
 - See `docs/plans/2026-06-09-valleybot-bot-log-privacy.md` for bot message and
   response log privacy coverage.
+- See `docs/plans/2026-06-10-ci-baseline.md` for the lightweight GitHub
+  Actions baseline.
 - See `docs/plans/2026-06-10-python3-runtime-modernization.md` for the Python 3,
   dependency, corpus, runtime-test, webhook-signature, and CI modernization.
 - See `docs/plans/2026-06-10-messenger-webhook-size-limit.md` for the completed
   unauthenticated request-body limit.
 - See `docs/plans/2026-06-10-filtered-response-fallback.md` for the completed
   moderation fallback and runtime regression coverage.
+- See `docs/plans/2026-06-14-moderation-review-guide.md` for the human content
+  review and evidence contract.
+- See `docs/plans/2026-06-14-codeql-analysis.md` for the pinned,
+  least-privilege code-scanning contract.
+- See `docs/plans/2026-06-14-messenger-challenge-escaping.md` for the reflected
+  challenge boundary found by CodeQL.
+- See `docs/plans/2026-06-12-messenger-json-content-type.md` for the exact JSON
+  media-type requirement on signed Messenger webhook requests.
+- See `docs/plans/2026-06-13-messenger-echo-guard.md` for ignoring page echo
+  messages without hiding later user messages in the same webhook payload.
+- See `docs/plans/2026-06-15-messenger-reply-http-status.md` for provider HTTP
+  failure handling and replay-claim recovery.
+- See `docs/plans/2026-06-17-slack-request-replay-guard.md` for bounded
+  process-local Slack signature claims and failure recovery.
 
 ## Contributing
 

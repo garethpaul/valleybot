@@ -32,14 +32,34 @@ Helpful reports include:
 - Review found file, document, data, or media parsing flows; changes in those areas should receive security-focused review before merge.
 - Review found infrastructure, deployment, proxy, or cloud configuration; changes in those areas should receive security-focused review before merge.
 - Dependency manifests detected: requirements.txt. Dependency updates should preserve lockfiles when present and avoid introducing packages without a clear maintenance reason.
+- GitHub Actions runs the dependency-free `make check` baseline; review workflow, checker, and deployment-script changes as part of the supply-chain surface.
+- CodeQL analyzes GitHub Actions and Python with immutable action pins and an
+  upload permission scoped to the analysis job.
 
 ## Service and API Notes
 
 Messenger POST webhooks are accepted only when `X-Hub-Signature-256` matches
 the raw request body under `MESSENGER_APP_SECRET`. Keep that secret distinct
 from page and verification tokens and rotate it if webhook logs expose it.
+Verified Messenger GET challenges are escaped before response delivery so a
+valid verification token cannot reflect executable markup into a browser.
+Messenger GET verification requires the exact `subscribe` mode after token
+authentication and before any challenge is reflected.
 Webhook bodies larger than 1 MiB are rejected with HTTP 413 before signature
 verification, JSON parsing, response generation, or outbound API calls.
+Messenger POST requests must use the `application/json` media type; optional
+parameters and case differences are accepted, while other types return 415
+before signature verification or JSON parsing.
+Recent non-empty Messenger message IDs are claimed before outbound replies in a
+bounded process-local cache. Duplicate deliveries are acknowledged without a
+second reply, and outbound exceptions release their claim. This protection
+does not span multiple workers or process restarts.
+Provider HTTP errors propagate through the webhook handler and release any
+message-ID claim so a later provider delivery can retry the outbound reply.
+Each signed webhook processes at most 20 valid user messages in payload order,
+limiting outbound reply amplification while preserving per-message replay
+claims and failure release.
+Unknown top-level fields, including `debug`, do not suppress valid Messenger replies.
 
 For web services, APIs, sockets, or scraping workflows, prioritize reports involving authentication bypass, authorization errors, injection, server-side request forgery, unsafe deserialization, credential leakage, data exposure, or denial-of-service conditions. Use test accounts and minimal proof-of-concept traffic only.
 
@@ -47,9 +67,20 @@ Messenger webhook events should only generate bot replies when sender IDs and
 message text are textual and nonblank. Non-message, blank, or non-text events
 should be acknowledged without response generation.
 
-Slack command events should only generate bot replies after token validation
-and when command text is textual and nonblank. Missing, blank, or non-text
-command values should return the existing missing-text response.
+Slack signing secret verification covers the exact raw request body and a
+five-minute timestamp window for both entry points. Unsigned, stale, future,
+tampered, or larger-than-1-MiB Slack commands must fail before bot execution;
+the deprecated payload verification token is not an authentication fallback.
+Authenticated command text must still be textual and nonblank.
+Bounded process-local Slack signature claims suppress exact retries before a
+second bot call and are released after processing failures. Separate workers,
+restarts, and evicted entries require a shared persistent replay store for
+global suppression.
+
+The public `/bot` route rejects chat input over 1,000 trimmed Unicode
+characters before TextBlob/NLTK processing. This limits per-request parser and
+tagger input but does not provide authentication, aggregate request-rate
+control, or a hard response-generation timeout.
 
 ## Dependency and Supply Chain Security
 
