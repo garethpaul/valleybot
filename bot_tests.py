@@ -13,6 +13,7 @@ os.environ.setdefault('MESSENGER_APP_SECRET', 'test-app-secret')
 
 import bot
 import nltk
+from nltk_guard import UnsafeNltkResourceError, validate_nltk_resource_name
 nltk.data.path.append(os.getcwd() + '/nltk_data')
 from textblob import TextBlob
 from webtest import TestApp
@@ -82,6 +83,27 @@ class BotTest(unittest.TestCase):
         response = "reviewed response"
 
         self.assertEqual(bot.safe_response(response), response)
+
+    def testNltkResourcePathGuardRejectsEncodedTraversal(self):
+        unsafe_resources = (
+            "nltk:%2fetc%2fpasswd",
+            "nltk:corpora/%2e%2e/%2e%2e/etc/passwd",
+            "nltk:corpora/..%2f..%2fetc%2fpasswd",
+            "nltk:%252fproc%252fself%252fenviron",
+            "nltk:C%3a%5cWindows%5cwin.ini",
+        )
+
+        for resource_name in unsafe_resources:
+            with self.subTest(resource_name=resource_name):
+                with self.assertRaises(UnsafeNltkResourceError):
+                    nltk.data.load(resource_name, format="raw")
+
+        with self.assertRaises(UnsafeNltkResourceError):
+            nltk.data.load(resource_url="nltk:%2fetc%2fpasswd", format="raw")
+
+    def testNltkResourcePathGuardAllowsFixedCorpusNames(self):
+        validate_nltk_resource_name("tokenizers/punkt/english.pickle")
+        validate_nltk_resource_name("taggers/averaged_perceptron_tagger_eng/")
 
 
 class TestBottleApp(unittest.TestCase):

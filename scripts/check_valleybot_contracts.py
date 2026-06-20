@@ -101,6 +101,9 @@ SLACK_REPLAY_PLAN_PATH = (
 WEB_CHAT_LENGTH_PLAN_PATH = (
     ROOT / "docs" / "plans" / "2026-06-17-web-chat-input-length.md"
 )
+NLTK_RESOURCE_GUARD_PLAN_PATH = (
+    ROOT / "docs" / "plans" / "2026-06-20-nltk-resource-path-guard.md"
+)
 
 
 class FakeBottle:
@@ -371,6 +374,7 @@ def test_completed_plans_are_in_docs_plans():
     assert_completed_plan(SLACK_SIGNING_SECRET_PLAN_PATH, "Slack signing secret")
     assert_completed_plan(SLACK_REPLAY_PLAN_PATH, "Slack request replay guard")
     assert_completed_plan(WEB_CHAT_LENGTH_PLAN_PATH, "web chat input length")
+    assert_completed_plan(NLTK_RESOURCE_GUARD_PLAN_PATH, "NLTK resource path guard")
     registered = registered_main_tests(
         (ROOT / "scripts" / "check_valleybot_contracts.py").read_text(encoding="utf-8")
     )
@@ -514,6 +518,45 @@ def test_runtime_and_ci_contracts():
         "Bottle/WebTest must cover Messenger verification mode",
     )
     assert_true("test_messenger_verification_escapes_reflected_markup" in Path(__file__).read_text(encoding="utf-8"), "dependency-free contracts must cover reflected challenge markup")
+
+
+def test_nltk_resource_path_guard_contracts():
+    bot_source = (ROOT / "bot.py").read_text(encoding="utf-8")
+    guard_source = (ROOT / "nltk_guard.py").read_text(encoding="utf-8")
+    tests_source = (ROOT / "bot_tests.py").read_text(encoding="utf-8")
+    makefile = (ROOT / "Makefile").read_text(encoding="utf-8")
+    readme = (ROOT / "README.md").read_text(encoding="utf-8")
+
+    for contract in (
+        "from nltk_guard import install_nltk_load_guard",
+        "install_nltk_load_guard(nltk)",
+    ):
+        assert_true(contract in bot_source, "missing NLTK guard installation {0}".format(contract))
+    for contract in (
+        "def validate_nltk_resource_name(resource_name):",
+        "decoded = _fully_unquote(resource_name)",
+        'normalized = decoded.replace("\\\\", "/")',
+        'normalized[1] == ":"',
+        'any(part == ".." for part in path_parts)',
+        "def install_nltk_load_guard(nltk_module):",
+        'original_load = getattr(nltk_module.data, "load", None)',
+        "validate_nltk_resource_name(resource_url)",
+    ):
+        assert_true(contract in guard_source, "missing NLTK path guard contract {0}".format(contract))
+    for contract in (
+        "testNltkResourcePathGuardRejectsEncodedTraversal",
+        "nltk:%2fetc%2fpasswd",
+        "nltk:%252fproc%252fself%252fenviron",
+        "nltk:C%3a%5cWindows%5cwin.ini",
+        'resource_url="nltk:%2fetc%2fpasswd"',
+        "testNltkResourcePathGuardAllowsFixedCorpusNames",
+    ):
+        assert_true(contract in tests_source, "missing NLTK path regression {0}".format(contract))
+    assert_true("nltk_guard.py" in makefile, "Make lint must compile the NLTK path guard")
+    assert_true(
+        "URL-encoded NLTK resource paths" in readme,
+        "README must document the NLTK resource path guard",
+    )
 
 
 def test_messenger_post_rejects_oversized_declared_body():
@@ -1807,6 +1850,7 @@ def main():
     tests = [
         test_completed_plans_are_in_docs_plans,
         test_runtime_and_ci_contracts,
+        test_nltk_resource_path_guard_contracts,
         test_messenger_post_rejects_oversized_declared_body,
         test_messenger_post_rejects_oversized_streamed_body,
         test_messenger_post_rejects_invalid_signature,

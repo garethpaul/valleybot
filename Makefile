@@ -6,6 +6,7 @@ PYTHON_FILES := \
 	bot.py \
 	bot_tests.py \
 	config.py \
+	nltk_guard.py \
 	settings.py \
 	slack_auth.py \
 	slack_replay.py \
