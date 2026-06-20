@@ -118,6 +118,8 @@ When the required SDK or runtime is unavailable, use static checks and source re
 - Public `/bot` chat input is limited to 1,000 trimmed Unicode characters
   before TextBlob/NLTK response generation. This is a per-request input bound,
   not authentication, aggregate rate limiting, or an execution timeout.
+- URL-encoded NLTK resource paths are decoded and rejected when they resolve
+  to absolute or parent-traversing paths before corpus loading.
 - Verified Messenger GET challenges are HTML-escaped before response delivery,
   so hostile markup cannot become reflected page content.
 

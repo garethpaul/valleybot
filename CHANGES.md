@@ -1,5 +1,9 @@
 # Changes
 
+- Guarded NLTK resource loading against URL-encoded absolute and parent-path
+  traversal while preserving fixed TextBlob corpus names, with runtime and
+  static regressions for GHSA-p4gq-832x-fm9v.
+
 ## 2026-06-17
 
 - Limited public web-chat input to 1,000 trimmed Unicode characters before

@@ -7,6 +7,9 @@ import logging
 import os
 import config
 import nltk
+from nltk_guard import install_nltk_load_guard
+
+install_nltk_load_guard(nltk)
 nltk.data.path.append(os.getcwd() + '/nltk_data')
 from textblob import TextBlob
 

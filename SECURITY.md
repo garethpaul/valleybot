@@ -82,6 +82,12 @@ characters before TextBlob/NLTK processing. This limits per-request parser and
 tagger input but does not provide authentication, aggregate request-rate
 control, or a hard response-generation timeout.
 
+NLTK resource loads are wrapped by `nltk_guard.py`. The guard repeatedly
+decodes resource identifiers and rejects absolute or parent-traversing paths
+before `nltk.data.load()` runs, including URL-encoded variants covered by
+GHSA-p4gq-832x-fm9v. Keep user-controlled resource identifiers out of NLTK and
+retain the guard until an independently validated patched release is used.
+
 ## Dependency and Supply Chain Security
 
 Dependency updates should come from trusted package managers and should keep lockfiles in sync when lockfiles exist. Do not commit credentials, private keys, tokens, generated secrets, or machine-local configuration. If a vulnerability depends on a compromised package, typosquatting risk, insecure transitive dependency, or unsafe build step, include the package name, affected version, and the path through which it is used.
