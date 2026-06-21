@@ -20,6 +20,7 @@ CHECKOUT="$TEMP_ROOT/valleybot app's [gate] \"quoted\" \`touch VALLEYBOT_ROOT_MA
 ATTACKER_ROOT="$TEMP_ROOT/attacker"
 LOG="$TEMP_ROOT/commands.log"
 SHELL_LOG="$TEMP_ROOT/shell.log"
+export VALLEYBOT_COMMAND_LOG="$LOG"
 
 mkdir -p "$CONTROL_DIR" "$CHECKOUT/scripts" "$ATTACKER_ROOT"
 CONTROL_DIR=$(CDPATH=; cd -- "$CONTROL_DIR" && /bin/pwd -P)
@@ -70,13 +71,13 @@ run_case() {
             (cd "$CONTROL_DIR" && VALLEYBOT_COMMAND_LOG="$LOG" make_run -f "$MAKEFILE" ROOT="$ATTACKER_ROOT" "PYTHON=$FAKE_PYTHON" "$target") >/dev/null 2>&1
             ;;
         environment-root)
-            (cd "$CONTROL_DIR" && ROOT="$ATTACKER_ROOT" VALLEYBOT_COMMAND_LOG="$LOG" make_run -f "$MAKEFILE" "PYTHON=$FAKE_PYTHON" "$target") >/dev/null 2>&1
+            (cd "$CONTROL_DIR" && export ROOT="$ATTACKER_ROOT" && VALLEYBOT_COMMAND_LOG="$LOG" make_run -f "$MAKEFILE" "PYTHON=$FAKE_PYTHON" "$target") >/dev/null 2>&1
             ;;
         command-shell)
             (cd "$CONTROL_DIR" && VALLEYBOT_COMMAND_LOG="$LOG" make_run -f "$MAKEFILE" SHELL="$FAKE_SHELL" "PYTHON=$FAKE_PYTHON" "$target") >/dev/null 2>&1
             ;;
         environment-shell)
-            (cd "$CONTROL_DIR" && SHELL="$FAKE_SHELL" VALLEYBOT_COMMAND_LOG="$LOG" make_run -f "$MAKEFILE" "PYTHON=$FAKE_PYTHON" "$target") >/dev/null 2>&1
+            (cd "$CONTROL_DIR" && export SHELL="$FAKE_SHELL" && VALLEYBOT_COMMAND_LOG="$LOG" make_run -f "$MAKEFILE" "PYTHON=$FAKE_PYTHON" "$target") >/dev/null 2>&1
             ;;
     esac
     status=$?
@@ -114,7 +115,7 @@ fi
 
 ENV_MARK="$TEMP_ROOT/python-environment-syntax"
 ENV_BAD="\$(shell /usr/bin/touch '$ENV_MARK')"
-if (cd "$CONTROL_DIR" && PYTHON="$ENV_BAD" make_run --environment-overrides -f "$MAKEFILE" lint) >"$TEMP_ROOT/python-environment.out" 2>&1; then
+if (cd "$CONTROL_DIR" && export PYTHON="$ENV_BAD" && make_run --environment-overrides -f "$MAKEFILE" lint) >"$TEMP_ROOT/python-environment.out" 2>&1; then
     exit 1
 fi
 [ ! -e "$ENV_MARK" ]
@@ -124,15 +125,17 @@ if (cd "$CONTROL_DIR" && make_run -f "$MAKEFILE" MAKEFILE_LIST=/tmp/untrusted ch
 fi
 grep -Fq 'MAKEFILE_LIST must not be overridden' "$TEMP_ROOT/list"
 
-if (cd "$CONTROL_DIR" && MAKEFILE_LIST=/tmp/untrusted make_run --environment-overrides -f "$MAKEFILE" check) >"$TEMP_ROOT/list-environment" 2>&1; then
-    exit 1
+rm -f "$LOG"
+if (cd "$CONTROL_DIR" && export MAKEFILE_LIST=/tmp/untrusted && make_run --environment-overrides -f "$MAKEFILE" "PYTHON=$FAKE_PYTHON" check) >"$TEMP_ROOT/list-environment" 2>&1; then
+    grep -Fq "$FAKE_PYTHON" "$LOG"
+else
+    grep -Fq 'MAKEFILE_LIST must not be overridden' "$TEMP_ROOT/list-environment"
 fi
-grep -Fq 'MAKEFILE_LIST must not be overridden' "$TEMP_ROOT/list-environment"
 
 PRE="$TEMP_ROOT/pre.mk"
 PRE_MARKER="$TEMP_ROOT/pre-ran"
 printf '%s\n' "\$(shell /usr/bin/touch '$PRE_MARKER')" >"$PRE"
-if (cd "$CONTROL_DIR" && MAKEFILES="$PRE" make_run -f "$MAKEFILE" check) >"$TEMP_ROOT/pre" 2>&1; then
+if (cd "$CONTROL_DIR" && export MAKEFILES="$PRE" && make_run -f "$MAKEFILE" check) >"$TEMP_ROOT/pre" 2>&1; then
     exit 1
 fi
 grep -Fq 'MAKEFILES must be empty' "$TEMP_ROOT/pre"
@@ -158,7 +161,7 @@ exit 0
 EOF
 chmod +x "$GLOBAL_SHELL"
 printf 'override SHELL := %s\noverride .SHELLFLAGS := -c\n' "$GLOBAL_SHELL" >"$GLOBAL_OVERRIDE"
-if (cd "$CONTROL_DIR" && VALLEYBOT_GLOBAL_OVERRIDE_LOG="$GLOBAL_SHELL_LOG" make_run -f "$MAKEFILE" -f "$GLOBAL_OVERRIDE" PYTHON=/usr/bin/false lint) >"$TEMP_ROOT/global-override" 2>&1; then
+if (cd "$CONTROL_DIR" && export VALLEYBOT_GLOBAL_OVERRIDE_LOG="$GLOBAL_SHELL_LOG" && make_run -f "$MAKEFILE" -f "$GLOBAL_OVERRIDE" PYTHON=/usr/bin/false lint) >"$TEMP_ROOT/global-override" 2>&1; then
     exit 1
 fi
 grep -Fq 'repository Makefile must be loaded alone' "$TEMP_ROOT/global-override"
@@ -176,7 +179,7 @@ SITE_DIR="$TEMP_ROOT/site"
 SITE_MARKER="$TEMP_ROOT/sitecustomize-ran"
 mkdir -p "$SITE_DIR"
 printf '%s\n' "import os; open('$SITE_MARKER', 'w').close(); os._exit(0)" >"$SITE_DIR/sitecustomize.py"
-(cd "$ROOT_DIR" && PYTHONPATH="$SITE_DIR" make_run lint PYTHON=/usr/bin/python3) >"$TEMP_ROOT/sitecustomize" 2>&1
+(cd "$ROOT_DIR" && export PYTHONPATH="$SITE_DIR" && make_run lint PYTHON=/usr/bin/python3) >"$TEMP_ROOT/sitecustomize" 2>&1
 [ ! -e "$SITE_MARKER" ]
 
 if (cd "$CONTROL_DIR" && make_run -f "$MAKEFILE" MAKEFLAGS=-n check) >"$TEMP_ROOT/flags" 2>&1; then
@@ -191,4 +194,4 @@ for flag in -n --just-print --dry-run --recon -t --touch -q --question -i --igno
     grep -Fq 'non-executing or error-ignoring MAKEFLAGS are not supported' "$TEMP_ROOT/flag"
 done
 
-printf '%s\n' 'Make authority tests passed: 40 target/authority cases, literal hostile Python path, 2 raw Make-syntax rejections, 2 MAKEFILE_LIST rejections, 2 startup-boundary cases, cleanup containment, global override shell rejection, PATH-Python rejection, isolated Python startup, caller MAKEFLAGS rejection, and 10 unsafe mode rejections'
+printf '%s\n' 'Make authority tests passed: 40 target/authority cases, literal hostile Python path, 2 raw Make-syntax rejections, MAKEFILE_LIST command rejection and safe environment neutralization, 2 startup-boundary cases, cleanup containment, global override shell rejection, PATH-Python rejection, isolated Python startup, caller MAKEFLAGS rejection, and 10 unsafe mode rejections'
