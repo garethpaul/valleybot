@@ -1,5 +1,13 @@
 # Changes
 
+## 2026-06-21
+
+- Isolated Make verification authority from caller-controlled roots, shells,
+  startup files, Makefile lists, unsafe execution modes, and executable Make
+  syntax while preserving repository-contained bytecode cleanup.
+- Added a hostile-path authority harness and invoked hosted verification
+  through `/usr/bin/make`.
+
 - Guarded NLTK resource loading against URL-encoded absolute and parent-path
   traversal while preserving fixed TextBlob corpus names, with runtime and
   static regressions for GHSA-p4gq-832x-fm9v.
