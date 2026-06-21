@@ -75,6 +75,13 @@ The setup commands above are derived from repository files. Legacy mobile, Pytho
   The Makefile derives the repository root from its own location, so the same
   gate can run from an external working directory with
   `make -f /path/to/valleybot/Makefile check`.
+- `make root-test` exercises every public target across hostile external paths,
+  root and shell overrides, startup files, Makefile-list replacement, unsafe
+  execution modes, and literal Python executable paths.
+- Repository verification fixes its shell and root from the reviewed Makefile,
+  accepts only a literal `PYTHON` executable path, and rejects injected startup
+  files and non-executing or error-ignoring Make modes. Hosted checks invoke
+  the system `/usr/bin/make` explicitly.
 - `make prepare-corpora` installs the current TextBlob tokenizer and tagger
   data into the existing project-local `nltk_data` directory. Heroku runs the
   same step through `bin/post_compile`.
@@ -88,6 +95,8 @@ The setup commands above are derived from repository files. Legacy mobile, Pytho
   `security-events: write` permission needed to upload results.
 - Completed maintenance plans live under `docs/plans` and are checked by
   `make check`.
+- See `docs/plans/2026-06-21-make-authority-isolation.md` for the Make
+  execution-authority and cleanup-containment boundary.
 - See `docs/plans/2026-06-13-messenger-message-replay-guard.md` for the bounded
   process-local Messenger retry guard.
 - See `docs/plans/2026-06-13-messenger-batch-processing-bound.md` for ordered,

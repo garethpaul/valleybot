@@ -104,6 +104,9 @@ WEB_CHAT_LENGTH_PLAN_PATH = (
 NLTK_RESOURCE_GUARD_PLAN_PATH = (
     ROOT / "docs" / "plans" / "2026-06-20-nltk-resource-path-guard.md"
 )
+MAKE_AUTHORITY_PLAN_PATH = (
+    ROOT / "docs" / "plans" / "2026-06-21-make-authority-isolation.md"
+)
 
 
 class FakeBottle:
@@ -375,6 +378,7 @@ def test_completed_plans_are_in_docs_plans():
     assert_completed_plan(SLACK_REPLAY_PLAN_PATH, "Slack request replay guard")
     assert_completed_plan(WEB_CHAT_LENGTH_PLAN_PATH, "web chat input length")
     assert_completed_plan(NLTK_RESOURCE_GUARD_PLAN_PATH, "NLTK resource path guard")
+    assert_completed_plan(MAKE_AUTHORITY_PLAN_PATH, "Make authority isolation")
     registered = registered_main_tests(
         (ROOT / "scripts" / "check_valleybot_contracts.py").read_text(encoding="utf-8")
     )
@@ -418,8 +422,8 @@ def test_runtime_and_ci_contracts():
             "github/codeql-action/analyze@8aad20d150bbac5944a9f9d289da16a4b0d87c1e",
             "persist-credentials: false",
             "python -m pip install -r requirements.txt",
-            "make check PYTHON=python",
-            'make -C "$GITHUB_WORKSPACE" check PYTHON=python'):
+            "/usr/bin/make check PYTHON=python",
+            '/usr/bin/make -C "$GITHUB_WORKSPACE" check PYTHON=python'):
         assert_true(contract in workflow, "missing CI contract {0}".format(contract))
     assert_true("@v" not in workflow, "CI actions must use immutable commits")
     assert_true("ubuntu-latest" not in workflow, "CI must not use a floating Ubuntu runner")
@@ -490,16 +494,38 @@ def test_runtime_and_ci_contracts():
 
     makefile = (ROOT / "Makefile").read_text(encoding="utf-8")
     makefile_lines = set(makefile.splitlines())
-    assert_true(
-        "override ROOT := $(abspath $(dir $(lastword $(MAKEFILE_LIST))))"
-        in makefile_lines,
-        "Makefile must protect the loaded Makefile directory as the repository root",
-    )
+    for contract in (
+            ".DEFAULT_GOAL := check",
+            ".SECONDEXPANSION:",
+            "PYTHON ?= python3",
+            "override PYTHON := $(value PYTHON)",
+            "override SHELL := /bin/sh",
+            "override .SHELLFLAGS := -c",
+            "override MAKEFILES :=",
+            "ifneq ($(origin MAKEFILE_LIST),file)",
+            "export ROOT",
+            "root-test:",
+            '\t/bin/sh "$$ROOT/scripts/test-makefile-root.sh"'):
+        assert_true(contract in makefile_lines, "missing Make authority contract {0}".format(contract))
     assert_true("$(CURDIR)" not in makefile, "Makefile root must not trust the caller directory")
-    assert_true("PYTHON ?= python3" in makefile_lines, "Makefile must preserve the Python command override")
-    assert_true('find "$(ROOT)"' in makefile, "Makefile cleanup must stay inside the repository")
-    assert_true('"$(ROOT)/scripts/check_valleybot_contracts.py"' in makefile, "Makefile must use the rooted contract path")
-    assert_true('$(MAKE) -C "$(ROOT)" clean' in makefile, "recursive cleanup must select the repository directory")
+    assert_true("MAKEFLAGS must not be overridden" in makefile, "Makefile must reject caller MAKEFLAGS")
+    assert_true("MAKEFILES must be empty" in makefile, "Makefile must reject startup files")
+    assert_true("MAKEFILE_LIST must not be overridden" in makefile, "Makefile must reject Makefile-list replacement")
+    assert_true("PYTHON must be a literal executable path" in makefile, "Makefile must reject Python Make syntax")
+    assert_true('/usr/bin/find "$$ROOT"' in makefile, "Makefile cleanup must stay inside the repository")
+    assert_true('"$$ROOT/scripts/check_valleybot_contracts.py"' in makefile, "Makefile must use the rooted contract path")
+    assert_true("verify: root-test lint test build" in makefile_lines, "full verification must run authority tests")
+
+    authority_test = (ROOT / "scripts" / "test-makefile-root.sh").read_text(encoding="utf-8")
+    for contract in (
+            "40 target/authority cases",
+            "literal hostile Python path",
+            "MAKEFILE_LIST must not be overridden",
+            "MAKEFILES must be empty",
+            "MAKEFLAGS must not be overridden",
+            "cleanup containment",
+            "--ignore-errors"):
+        assert_true(contract in authority_test, "missing Make authority harness contract {0}".format(contract))
 
     app_source = (ROOT / "app.py").read_text(encoding="utf-8")
     runtime_tests = (ROOT / "bot_tests.py").read_text(encoding="utf-8")
