@@ -77,11 +77,16 @@ The setup commands above are derived from repository files. Legacy mobile, Pytho
   `make -f /path/to/valleybot/Makefile check`.
 - `make root-test` exercises every public target across hostile external paths,
   root and shell overrides, startup files, Makefile-list replacement, unsafe
-  execution modes, and literal Python executable paths.
-- Repository verification fixes its shell and root from the reviewed Makefile,
-  accepts only a literal `PYTHON` executable path, and rejects injected startup
-  files and non-executing or error-ignoring Make modes. Hosted checks invoke
-  the system `/usr/bin/make` explicitly.
+  execution modes, literal Python executable paths, and caller-owned Make
+  program controls.
+- Repository verification fixes its shell and root from the reviewed Makefile
+  when it is loaded without caller-supplied Make programs. Caller-supplied Make
+  programs are outside this trust boundary. That includes `MAKEFILES` startup
+  files, extra `-f` makefiles, global or target-specific `override`
+  directives, replacement or double-colon recipes, and caller-selected
+  `SHELL`, `.SHELLFLAGS`, `PATH`, or tool variables. The harness records that
+  those inputs are caller authority; hosted checks invoke the system
+  `/usr/bin/make` explicitly without additional Make programs.
 - `make prepare-corpora` installs the current TextBlob tokenizer and tagger
   data into the existing project-local `nltk_data` directory. Heroku runs the
   same step through `bin/post_compile`.

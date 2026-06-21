@@ -546,6 +546,33 @@ def test_runtime_and_ci_contracts():
     assert_true("test_messenger_verification_escapes_reflected_markup" in Path(__file__).read_text(encoding="utf-8"), "dependency-free contracts must cover reflected challenge markup")
 
 
+def test_make_authority_boundary_is_truthful():
+    readme = (ROOT / "README.md").read_text(encoding="utf-8")
+    plan = MAKE_AUTHORITY_PLAN_PATH.read_text(encoding="utf-8")
+    authority_test = (ROOT / "scripts" / "test-makefile-root.sh").read_text(encoding="utf-8")
+
+    for document_name, document in (
+        ("README.md", " ".join(readme.split())),
+        ("Make authority plan", " ".join(plan.split())),
+    ):
+        for contract in (
+            "Caller-supplied Make programs are outside this trust boundary.",
+            "`MAKEFILES` startup files",
+            "extra `-f` makefiles",
+            "global or target-specific `override` directives",
+            "replacement or double-colon recipes",
+            "caller-selected `SHELL`, `.SHELLFLAGS`, `PATH`, or tool variables",
+        ):
+            assert_true(contract in document, "{0} must document {1}".format(document_name, contract))
+
+    for contract in (
+        "MAKE_BIN=${MAKE_BIN:-/usr/bin/make}",
+        "global override shell boundary control",
+        "caller global override SHELL can make a failing Python tool look successful",
+    ):
+        assert_true(contract in authority_test, "Make authority harness must include {0}".format(contract))
+
+
 def test_nltk_resource_path_guard_contracts():
     bot_source = (ROOT / "bot.py").read_text(encoding="utf-8")
     guard_source = (ROOT / "nltk_guard.py").read_text(encoding="utf-8")
@@ -1876,6 +1903,7 @@ def main():
     tests = [
         test_completed_plans_are_in_docs_plans,
         test_runtime_and_ci_contracts,
+        test_make_authority_boundary_is_truthful,
         test_nltk_resource_path_guard_contracts,
         test_messenger_post_rejects_oversized_declared_body,
         test_messenger_post_rejects_oversized_streamed_body,
