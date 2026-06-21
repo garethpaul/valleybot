@@ -37,6 +37,8 @@ chmod +x "$FAKE_PYTHON"
 for script in test-makefile-root.sh check_valleybot_contracts.py test_web_chat_length_contract.py prepare_nltk_data.sh; do
     cp "$FAKE_PYTHON" "$CHECKOUT/scripts/$script"
 done
+cp "$ROOT_DIR/scripts/run-python.sh" "$CHECKOUT/scripts/run-python.sh"
+chmod +x "$CHECKOUT/scripts/run-python.sh"
 for file in app.py bot.py bot_tests.py config.py nltk_guard.py settings.py slack_auth.py slack_replay.py slack.py; do
     : >"$CHECKOUT/$file"
 done
@@ -156,11 +158,26 @@ exit 0
 EOF
 chmod +x "$GLOBAL_SHELL"
 printf 'override SHELL := %s\noverride .SHELLFLAGS := -c\n' "$GLOBAL_SHELL" >"$GLOBAL_OVERRIDE"
-if ! (cd "$CONTROL_DIR" && VALLEYBOT_GLOBAL_OVERRIDE_LOG="$GLOBAL_SHELL_LOG" make_run -f "$MAKEFILE" -f "$GLOBAL_OVERRIDE" PYTHON=/bin/false lint) >"$TEMP_ROOT/global-override" 2>&1; then
+if (cd "$CONTROL_DIR" && VALLEYBOT_GLOBAL_OVERRIDE_LOG="$GLOBAL_SHELL_LOG" make_run -f "$MAKEFILE" -f "$GLOBAL_OVERRIDE" PYTHON=/usr/bin/false lint) >"$TEMP_ROOT/global-override" 2>&1; then
     exit 1
 fi
-[ -s "$GLOBAL_SHELL_LOG" ]
-grep -Fq 'py_compile' "$GLOBAL_SHELL_LOG"
+grep -Fq 'repository Makefile must be loaded alone' "$TEMP_ROOT/global-override"
+[ ! -e "$GLOBAL_SHELL_LOG" ]
+
+PATH_PYTHON="$TEMP_ROOT/python3"
+PATH_PYTHON_LOG="$TEMP_ROOT/path-python.log"
+cp "$FAKE_PYTHON" "$PATH_PYTHON"
+if (cd "$CONTROL_DIR" && PATH="$TEMP_ROOT:/usr/bin:/bin" VALLEYBOT_COMMAND_LOG="$PATH_PYTHON_LOG" make_run -f "$MAKEFILE" lint) >"$TEMP_ROOT/path-python" 2>&1; then
+    exit 1
+fi
+[ ! -e "$PATH_PYTHON_LOG" ]
+
+SITE_DIR="$TEMP_ROOT/site"
+SITE_MARKER="$TEMP_ROOT/sitecustomize-ran"
+mkdir -p "$SITE_DIR"
+printf '%s\n' "import os; open('$SITE_MARKER', 'w').close(); os._exit(0)" >"$SITE_DIR/sitecustomize.py"
+(cd "$ROOT_DIR" && PYTHONPATH="$SITE_DIR" make_run lint PYTHON=/usr/bin/python3) >"$TEMP_ROOT/sitecustomize" 2>&1
+[ ! -e "$SITE_MARKER" ]
 
 if (cd "$CONTROL_DIR" && make_run -f "$MAKEFILE" MAKEFLAGS=-n check) >"$TEMP_ROOT/flags" 2>&1; then
     exit 1
@@ -174,4 +191,4 @@ for flag in -n --just-print --dry-run --recon -t --touch -q --question -i --igno
     grep -Fq 'non-executing or error-ignoring MAKEFLAGS are not supported' "$TEMP_ROOT/flag"
 done
 
-printf '%s\n' 'Make authority tests passed: 40 target/authority cases, literal hostile Python path, 2 raw Make-syntax rejections, 2 MAKEFILE_LIST rejections, 2 startup-boundary cases, cleanup containment, caller MAKEFLAGS rejection, global override shell boundary control showing caller global override SHELL can make a failing Python tool look successful, and 10 unsafe mode rejections'
+printf '%s\n' 'Make authority tests passed: 40 target/authority cases, literal hostile Python path, 2 raw Make-syntax rejections, 2 MAKEFILE_LIST rejections, 2 startup-boundary cases, cleanup containment, global override shell rejection, PATH-Python rejection, isolated Python startup, caller MAKEFLAGS rejection, and 10 unsafe mode rejections'

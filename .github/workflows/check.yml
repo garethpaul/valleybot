@@ -34,9 +34,9 @@ jobs:
       - name: Install dependencies
         run: python -m pip install -r requirements.txt
       - name: Run repository checks
-        run: /usr/bin/make check PYTHON=python
+        run: /usr/bin/make check PYTHON="$(command -v python)"
       - name: Verify external working directory
-        run: cd "$(mktemp -d)" && /usr/bin/make -C "$GITHUB_WORKSPACE" check PYTHON=python
+        run: cd "$(mktemp -d)" && /usr/bin/make -C "$GITHUB_WORKSPACE" check PYTHON="$(command -v python)"
 
   codeql:
     name: CodeQL (${{ matrix.language }})

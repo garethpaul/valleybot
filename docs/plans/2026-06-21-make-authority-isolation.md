@@ -27,6 +27,8 @@ replacement or double-colon recipes, and caller-selected `SHELL`,
   rather than as authenticated repository verification.
 - Preserve caller selection of a literal Python executable, including paths
   with spaces and shell metacharacters, without evaluating Make syntax.
+- Require absolute Python executables, bake the reviewed selection into recipes,
+  and enforce isolated startup with `-I -B`.
 - Keep bytecode cleanup confined to the repository before and after the full
   gate, including when invoked from an external directory.
 - Exercise all eight public targets under command-line and environment
@@ -50,7 +52,7 @@ replacement or double-colon recipes, and caller-selected `SHELL`,
 - The authority harness passed 40 public-target/root/shell cases, a literal
   hostile Python path, two Make-syntax rejections, two Makefile-list
   rejections, two startup boundaries, caller `MAKEFLAGS`, ten unsafe modes,
-  repository cleanup containment, and a global-override shell boundary control
-  showing that caller Make programs can make a failing tool look successful.
+  repository cleanup containment, global-override shell rejection, PATH-Python
+  rejection, and a hostile `sitecustomize.py` isolation proof.
 - Python and shell syntax, workflow YAML, `git diff --check`, intended-path,
   artifact, and changed-line credential audits passed.

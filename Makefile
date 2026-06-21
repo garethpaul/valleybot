@@ -2,12 +2,18 @@
 .PHONY: __repository-make-authority build check clean lint prepare-corpora root-test test verify
 .SECONDEXPANSION:
 
-PYTHON ?= python3
+ifeq ($(origin PYTHON),undefined)
+override PYTHON := /usr/bin/python3
+else
 override PYTHON := $(value PYTHON)
+endif
 export PYTHON
 override REPOSITORY_MAKE_DOLLAR := $$
 override REPOSITORY_MAKE_OPEN := (
 ifneq ($(findstring $(REPOSITORY_MAKE_DOLLAR)$(REPOSITORY_MAKE_OPEN),$(value PYTHON)),)
+$(error PYTHON must be a literal executable path, not Make syntax)
+endif
+ifneq ($(findstring $(REPOSITORY_MAKE_DOLLAR){,$(value PYTHON)),)
 $(error PYTHON must be a literal executable path, not Make syntax)
 endif
 override SHELL := /bin/sh
@@ -43,10 +49,19 @@ override MAKEFILES :=
 ifneq ($(origin MAKEFILE_LIST),file)
 $(error MAKEFILE_LIST must not be overridden)
 endif
+override REPOSITORY_MAKEFILE_LIST := $(value MAKEFILE_LIST)
 override ROOT := $(shell path='$(subst ','"'"',$(value MAKEFILE_LIST))'; path=$$(printf '%s' "$$path" | /usr/bin/sed 's/^ //'); [ -f "$$path" ] || exit 1; directory=$$(/usr/bin/dirname -- "$$path"); CDPATH= cd -- "$$directory" && /bin/pwd -P)
 export ROOT
 ifeq ($(strip $(ROOT)),)
 $(error repository Makefile path could not be resolved)
+endif
+override REPOSITORY_SHELL_LITERAL = $(subst $$,$$$$,$(subst ','"'"',$1))
+override REPOSITORY_PARSE_SHELL_LITERAL = $(subst ','"'"',$1)
+override REPOSITORY_ROOT_LITERAL := $(call REPOSITORY_SHELL_LITERAL,$(ROOT))
+override REPOSITORY_PYTHON_LITERAL := $(call REPOSITORY_SHELL_LITERAL,$(PYTHON))
+override REPOSITORY_PYTHON_IS_VALID := $(shell candidate='$(call REPOSITORY_PARSE_SHELL_LITERAL,$(PYTHON))'; /bin/expr "$$candidate" : '^/' >/dev/null && [ -x "$$candidate" ] && /usr/bin/printf '%s' yes)
+ifneq ($(REPOSITORY_PYTHON_IS_VALID),yes)
+$(error PYTHON must be an absolute executable path)
 endif
 
 PYTHON_FILES := \
@@ -62,35 +77,39 @@ PYTHON_FILES := \
 	scripts/check_valleybot_contracts.py \
 	scripts/test_web_chat_length_contract.py
 
-build check clean lint prepare-corpora root-test test verify: $$(if $$(filter file,$$(origin MAKEFILE_LIST)),,$$(error MAKEFILE_LIST must not be overridden))
-build check clean lint prepare-corpora root-test test verify: $$(if $$(shell path=$$$$(/usr/bin/printf '%s' '$$(subst ','"'"',$$(MAKEFILE_LIST))' | /usr/bin/sed 's/^ //') && [ -f "$$$$path" ] && /usr/bin/printf '%s' ok),,$$(error repository Makefile must be loaded alone))
-build check clean lint prepare-corpora root-test test verify: __repository-make-authority
+build check clean lint prepare-corpora root-test test verify:: $$(if $$(filter file,$$(origin MAKEFILE_LIST)),,$$(error MAKEFILE_LIST must not be overridden))
+build check clean lint prepare-corpora root-test test verify:: $$(if $$(filter-out $$(REPOSITORY_MAKEFILE_LIST),$$(value MAKEFILE_LIST)),$$(error repository Makefile must be loaded alone))
+build check clean lint prepare-corpora root-test test verify:: $$(if $$(filter-out $$(value MAKEFILE_LIST),$$(REPOSITORY_MAKEFILE_LIST)),$$(error repository Makefile must be loaded alone))
+build check clean lint prepare-corpora root-test test verify:: __repository-make-authority
 
 __repository-make-authority::
 	@:
 
-clean:
-	/usr/bin/find "$$ROOT" -type f \( -name '*.pyc' -o -name '*.pyo' \) -delete
-	/usr/bin/find "$$ROOT" -type d -name '__pycache__' -prune -exec /bin/rm -rf {} +
+define REPOSITORY_PUBLIC_RECIPES
+clean::
+	/usr/bin/find '$(REPOSITORY_ROOT_LITERAL)' -type f \( -name '*.pyc' -o -name '*.pyo' \) -delete
+	/usr/bin/find '$(REPOSITORY_ROOT_LITERAL)' -type d -name '__pycache__' -prune -exec /bin/rm -rf {} +
 
-lint:
-	cd "$$ROOT" && PYTHONDONTWRITEBYTECODE=1 "$$PYTHON" -m py_compile $(PYTHON_FILES)
+lint::
+	cd '$(REPOSITORY_ROOT_LITERAL)' && PYTHONDONTWRITEBYTECODE=1 '$(REPOSITORY_PYTHON_LITERAL)' -I -B -m py_compile $(PYTHON_FILES)
 
-prepare-corpora:
-	PYTHON="$$PYTHON" "$$ROOT/scripts/prepare_nltk_data.sh"
+prepare-corpora::
+	REPOSITORY_PYTHON='$(REPOSITORY_PYTHON_LITERAL)' '$(REPOSITORY_ROOT_LITERAL)/scripts/run-python.sh' --module textblob.download_corpora lite
 
-test: prepare-corpora
-	PYTHONDONTWRITEBYTECODE=1 "$$PYTHON" "$$ROOT/scripts/check_valleybot_contracts.py"
-	PYTHONDONTWRITEBYTECODE=1 "$$PYTHON" "$$ROOT/scripts/test_web_chat_length_contract.py"
-	cd "$$ROOT" && /usr/bin/env SLACK_SIGNING_SECRET=test-slack-signing-secret MESSENGER_TOKEN=test-page-token MESSENGER_VERIFY_TOKEN=test-verify-token "$$PYTHON" -m unittest bot_tests
+test:: prepare-corpora
+	REPOSITORY_PYTHON='$(REPOSITORY_PYTHON_LITERAL)' '$(REPOSITORY_ROOT_LITERAL)/scripts/run-python.sh' '$(REPOSITORY_ROOT_LITERAL)/scripts/check_valleybot_contracts.py'
+	REPOSITORY_PYTHON='$(REPOSITORY_PYTHON_LITERAL)' '$(REPOSITORY_ROOT_LITERAL)/scripts/run-python.sh' '$(REPOSITORY_ROOT_LITERAL)/scripts/test_web_chat_length_contract.py'
+	cd '$(REPOSITORY_ROOT_LITERAL)' && /usr/bin/env SLACK_SIGNING_SECRET=test-slack-signing-secret MESSENGER_TOKEN=test-page-token MESSENGER_VERIFY_TOKEN=test-verify-token REPOSITORY_PYTHON='$(REPOSITORY_PYTHON_LITERAL)' '$(REPOSITORY_ROOT_LITERAL)/scripts/run-python.sh' '$(REPOSITORY_ROOT_LITERAL)/bot_tests.py'
 
-build: lint
+build:: lint
 
-root-test:
-	/bin/sh "$$ROOT/scripts/test-makefile-root.sh"
+root-test::
+	/bin/sh '$(REPOSITORY_ROOT_LITERAL)/scripts/test-makefile-root.sh'
 
-verify: root-test lint test build
+verify:: root-test lint test build
 
-check: clean verify
-	/usr/bin/find "$$ROOT" -type f \( -name '*.pyc' -o -name '*.pyo' \) -delete
-	/usr/bin/find "$$ROOT" -type d -name '__pycache__' -prune -exec /bin/rm -rf {} +
+check:: clean verify
+	/usr/bin/find '$(REPOSITORY_ROOT_LITERAL)' -type f \( -name '*.pyc' -o -name '*.pyo' \) -delete
+	/usr/bin/find '$(REPOSITORY_ROOT_LITERAL)' -type d -name '__pycache__' -prune -exec /bin/rm -rf {} +
+endef
+$(eval $(REPOSITORY_PUBLIC_RECIPES))

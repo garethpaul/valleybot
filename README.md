@@ -84,9 +84,11 @@ The setup commands above are derived from repository files. Legacy mobile, Pytho
   programs are outside this trust boundary. That includes `MAKEFILES` startup
   files, extra `-f` makefiles, global or target-specific `override`
   directives, replacement or double-colon recipes, and caller-selected
-  `SHELL`, `.SHELLFLAGS`, `PATH`, or tool variables. The harness records that
-  those inputs are caller authority; hosted checks invoke the system
-  `/usr/bin/make` explicitly without additional Make programs.
+  `SHELL`, `.SHELLFLAGS`, `PATH`, or tool variables. Without additional Make
+  programs, recipes bake the reviewed root and absolute Python executable,
+  reject PATH-shadowed defaults, and use isolated Python startup (`-I -B`) to
+  ignore `PYTHONPATH`, user-site packages, and `sitecustomize.py`. Hosted checks
+  invoke `/usr/bin/make` explicitly without additional Make programs.
 - `make prepare-corpora` installs the current TextBlob tokenizer and tagger
   data into the existing project-local `nltk_data` directory. Heroku runs the
   same step through `bin/post_compile`.
