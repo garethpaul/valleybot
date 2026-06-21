@@ -89,9 +89,9 @@ The setup commands above are derived from repository files. Legacy mobile, Pytho
   reject PATH-shadowed defaults, and use isolated Python startup (`-I -B`) to
   ignore `PYTHONPATH`, user-site packages, and `sitecustomize.py`. Hosted checks
   invoke `/usr/bin/make` explicitly without additional Make programs.
-- `make prepare-corpora` installs the current TextBlob tokenizer and tagger
-  data into the existing project-local `nltk_data` directory. Heroku runs the
-  same step through `bin/post_compile`.
+- `make prepare-corpora` installs and verifies the current TextBlob tokenizer
+  and tagger data in the existing project-local `nltk_data` directory. Heroku
+  runs the same step through `bin/post_compile`.
 - `python scripts/check_valleybot_contracts.py` runs just the webhook and token-handling contracts.
 - GitHub Actions installs dependencies and runs the complete gate on Python
   3.10, 3.12, and 3.14 on Ubuntu 24.04 with read-only permissions, immutable

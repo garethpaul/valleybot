@@ -10,6 +10,8 @@
 - Baked an absolute Python interpreter into verification recipes, rejected
   PATH-shadowed defaults and later shell false-success, and isolated startup
   from `PYTHONPATH`, user-site packages, and `sitecustomize.py`.
+- Made Make and Heroku corpus preparation use and verify the same
+  project-local NLTK data directory.
 
 - Guarded NLTK resource loading against URL-encoded absolute and parent-path
   traversal while preserving fixed TextBlob corpus names, with runtime and

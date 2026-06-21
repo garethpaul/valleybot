@@ -8,7 +8,7 @@ case $REPOSITORY_PYTHON in
     *) printf '%s\n' 'REPOSITORY_PYTHON must be an absolute path' >&2; exit 2 ;;
 esac
 
-root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && /bin/pwd -P)
+root=$(CDPATH='' cd -- "$(dirname -- "$0")/.." && /bin/pwd -P)
 
 if [ "${1-}" = --module ]; then
     shift

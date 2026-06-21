@@ -614,6 +614,81 @@ def test_nltk_resource_path_guard_contracts():
     )
 
 
+def test_shell_entrypoints_use_portable_cdpath_reset():
+    for relative_path in (
+        "bin/post_compile",
+        "scripts/prepare_nltk_data.sh",
+        "scripts/run-python.sh",
+    ):
+        source = (ROOT / relative_path).read_text(encoding="utf-8")
+        assert_true(
+            "CDPATH= cd --" not in source,
+            "{0} must not use shellcheck SC1007-prone CDPATH= cd form".format(
+                relative_path
+            ),
+        )
+        assert_true(
+            "CDPATH='' cd --" in source or "CDPATH=; cd --" in source,
+            "{0} must reset CDPATH portably before resolving the repository".format(
+                relative_path
+            ),
+        )
+
+
+def test_prepare_corpora_uses_project_local_nltk_data_contract():
+    makefile = (ROOT / "Makefile").read_text(encoding="utf-8")
+    prepare_script = (ROOT / "scripts" / "prepare_nltk_data.sh").read_text(
+        encoding="utf-8"
+    )
+    nltk_checker = (ROOT / "scripts" / "check_nltk_data.py").read_text(
+        encoding="utf-8"
+    )
+    post_compile = (ROOT / "bin" / "post_compile").read_text(encoding="utf-8")
+    readme = (ROOT / "README.md").read_text(encoding="utf-8")
+
+    assert_true(
+        "scripts/prepare_nltk_data.sh" in makefile,
+        "make prepare-corpora must use the reviewed project-local NLTK entrypoint",
+    )
+    assert_true(
+        "prepare-corpora::\n\tREPOSITORY_PYTHON=" in makefile,
+        "make prepare-corpora must bake the reviewed Python interpreter",
+    )
+    assert_true(
+        'export NLTK_DATA="$ROOT_DIR/nltk_data"' in prepare_script,
+        "prepare_nltk_data.sh must target project-local nltk_data",
+    )
+    assert_true(
+        "scripts/check_nltk_data.py" in prepare_script,
+        "prepare_nltk_data.sh must verify project-local runtime resources",
+    )
+    for resource in (
+        "corpora/brown",
+        "tokenizers/punkt_tab",
+        "corpora/wordnet",
+        "taggers/averaged_perceptron_tagger_eng",
+    ):
+        assert_true(
+            resource in nltk_checker,
+            "NLTK data checker must require {0}".format(resource),
+        )
+    assert_true(
+        "resource is outside NLTK_DATA" in nltk_checker,
+        "NLTK data checker must require resources from project-local NLTK_DATA",
+    )
+    assert_true(
+        '"$ROOT_DIR/scripts/prepare_nltk_data.sh"' in post_compile,
+        "post_compile must use the same project-local NLTK entrypoint",
+    )
+    normalized_readme = " ".join(readme.split())
+    assert_true(
+        "`make prepare-corpora` installs and verifies the current TextBlob tokenizer "
+        "and tagger data in the existing project-local `nltk_data` directory"
+        in normalized_readme,
+        "README must truthfully describe make prepare-corpora resource path",
+    )
+
+
 def test_messenger_post_rejects_oversized_declared_body():
     app, request, response, requests = load_app()
     request.content_length = app.MAX_MESSENGER_WEBHOOK_BYTES + 1
@@ -1907,6 +1982,8 @@ def main():
         test_runtime_and_ci_contracts,
         test_make_authority_boundary_is_truthful,
         test_nltk_resource_path_guard_contracts,
+        test_shell_entrypoints_use_portable_cdpath_reset,
+        test_prepare_corpora_uses_project_local_nltk_data_contract,
         test_messenger_post_rejects_oversized_declared_body,
         test_messenger_post_rejects_oversized_streamed_body,
         test_messenger_post_rejects_invalid_signature,
