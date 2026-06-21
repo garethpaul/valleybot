@@ -422,8 +422,8 @@ def test_runtime_and_ci_contracts():
             "github/codeql-action/analyze@8aad20d150bbac5944a9f9d289da16a4b0d87c1e",
             "persist-credentials: false",
             "python -m pip install -r requirements.txt",
-            "/usr/bin/make check PYTHON=python",
-            '/usr/bin/make -C "$GITHUB_WORKSPACE" check PYTHON=python'):
+            '/usr/bin/make check PYTHON="$(command -v python)"',
+            '/usr/bin/make -C "$GITHUB_WORKSPACE" check PYTHON="$(command -v python)"'):
         assert_true(contract in workflow, "missing CI contract {0}".format(contract))
     assert_true("@v" not in workflow, "CI actions must use immutable commits")
     assert_true("ubuntu-latest" not in workflow, "CI must not use a floating Ubuntu runner")
@@ -497,24 +497,25 @@ def test_runtime_and_ci_contracts():
     for contract in (
             ".DEFAULT_GOAL := check",
             ".SECONDEXPANSION:",
-            "PYTHON ?= python3",
+            "override PYTHON := /usr/bin/python3",
             "override PYTHON := $(value PYTHON)",
             "override SHELL := /bin/sh",
             "override .SHELLFLAGS := -c",
             "override MAKEFILES :=",
             "ifneq ($(origin MAKEFILE_LIST),file)",
             "export ROOT",
-            "root-test:",
-            '\t/bin/sh "$$ROOT/scripts/test-makefile-root.sh"'):
+            "root-test::",
+            "\t/bin/sh '$(REPOSITORY_ROOT_LITERAL)/scripts/test-makefile-root.sh'"):
         assert_true(contract in makefile_lines, "missing Make authority contract {0}".format(contract))
     assert_true("$(CURDIR)" not in makefile, "Makefile root must not trust the caller directory")
     assert_true("MAKEFLAGS must not be overridden" in makefile, "Makefile must reject caller MAKEFLAGS")
     assert_true("MAKEFILES must be empty" in makefile, "Makefile must reject startup files")
     assert_true("MAKEFILE_LIST must not be overridden" in makefile, "Makefile must reject Makefile-list replacement")
     assert_true("PYTHON must be a literal executable path" in makefile, "Makefile must reject Python Make syntax")
-    assert_true('/usr/bin/find "$$ROOT"' in makefile, "Makefile cleanup must stay inside the repository")
-    assert_true('"$$ROOT/scripts/check_valleybot_contracts.py"' in makefile, "Makefile must use the rooted contract path")
-    assert_true("verify: root-test lint test build" in makefile_lines, "full verification must run authority tests")
+    assert_true("override REPOSITORY_ROOT_LITERAL :=" in makefile, "Makefile must embed its reviewed repository root")
+    assert_true("scripts/run-python.sh" in makefile, "Makefile must use the isolated Python launcher")
+    assert_true("verify:: root-test lint test build" in makefile_lines, "full verification must run authority tests")
+    assert_true("-I -B" in (ROOT / "scripts" / "run-python.sh").read_text(encoding="utf-8"), "Python launcher must isolate startup state")
 
     authority_test = (ROOT / "scripts" / "test-makefile-root.sh").read_text(encoding="utf-8")
     for contract in (
@@ -544,6 +545,34 @@ def test_runtime_and_ci_contracts():
         "Bottle/WebTest must cover Messenger verification mode",
     )
     assert_true("test_messenger_verification_escapes_reflected_markup" in Path(__file__).read_text(encoding="utf-8"), "dependency-free contracts must cover reflected challenge markup")
+
+
+def test_make_authority_boundary_is_truthful():
+    readme = (ROOT / "README.md").read_text(encoding="utf-8")
+    plan = MAKE_AUTHORITY_PLAN_PATH.read_text(encoding="utf-8")
+    authority_test = (ROOT / "scripts" / "test-makefile-root.sh").read_text(encoding="utf-8")
+
+    for document_name, document in (
+        ("README.md", " ".join(readme.split())),
+        ("Make authority plan", " ".join(plan.split())),
+    ):
+        for contract in (
+            "Caller-supplied Make programs are outside this trust boundary.",
+            "`MAKEFILES` startup files",
+            "extra `-f` makefiles",
+            "global or target-specific `override` directives",
+            "replacement or double-colon recipes",
+            "caller-selected `SHELL`, `.SHELLFLAGS`, `PATH`, or tool variables",
+        ):
+            assert_true(contract in document, "{0} must document {1}".format(document_name, contract))
+
+    for contract in (
+        "MAKE_BIN=${MAKE_BIN:-/usr/bin/make}",
+        "global override shell rejection",
+        "PATH-Python rejection",
+        "isolated Python startup",
+    ):
+        assert_true(contract in authority_test, "Make authority harness must include {0}".format(contract))
 
 
 def test_nltk_resource_path_guard_contracts():
@@ -1876,6 +1905,7 @@ def main():
     tests = [
         test_completed_plans_are_in_docs_plans,
         test_runtime_and_ci_contracts,
+        test_make_authority_boundary_is_truthful,
         test_nltk_resource_path_guard_contracts,
         test_messenger_post_rejects_oversized_declared_body,
         test_messenger_post_rejects_oversized_streamed_body,

@@ -2,4 +2,6 @@
 set -euo pipefail
 
 ROOT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
-PYTHON=python "$ROOT_DIR/scripts/prepare_nltk_data.sh"
+REPOSITORY_PYTHON=$(command -v python)
+export REPOSITORY_PYTHON
+"$ROOT_DIR/scripts/prepare_nltk_data.sh"

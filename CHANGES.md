@@ -7,6 +7,9 @@
   syntax while preserving repository-contained bytecode cleanup.
 - Added a hostile-path authority harness and invoked hosted verification
   through `/usr/bin/make`.
+- Baked an absolute Python interpreter into verification recipes, rejected
+  PATH-shadowed defaults and later shell false-success, and isolated startup
+  from `PYTHONPATH`, user-site packages, and `sitecustomize.py`.
 
 - Guarded NLTK resource loading against URL-encoded absolute and parent-path
   traversal while preserving fixed TextBlob corpus names, with runtime and

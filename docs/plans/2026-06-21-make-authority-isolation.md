@@ -9,14 +9,26 @@ could still replace the recipe shell, load startup makefiles, override the
 Makefile list, select non-executing or error-ignoring modes, or embed Make
 syntax in the configurable Python executable value.
 
+This plan covers repository-controlled Make invocations. Caller-supplied Make
+programs are outside this trust boundary. That includes `MAKEFILES` startup
+files, extra `-f` makefiles, global or target-specific `override` directives,
+replacement or double-colon recipes, and caller-selected `SHELL`,
+`.SHELLFLAGS`, `PATH`, or tool variables.
+
 ## Requirements
 
 - Derive the repository root only from the reviewed Makefile path.
-- Fix recipes to `/bin/sh` and reject injected startup makefiles.
+- Fix recipes to `/bin/sh` for repository-controlled invocations.
 - Reject replaced Makefile lists and dry-run, touch, question, or
-  ignore-errors modes for every public target.
+  ignore-errors modes for every public target when no caller-supplied Make
+  programs are loaded.
+- Treat startup files, extra makefiles, override directives, replacement
+  recipes, double-colon recipes, and caller-selected tools as caller authority
+  rather than as authenticated repository verification.
 - Preserve caller selection of a literal Python executable, including paths
   with spaces and shell metacharacters, without evaluating Make syntax.
+- Require absolute Python executables, bake the reviewed selection into recipes,
+  and enforce isolated startup with `-I -B`.
 - Keep bytecode cleanup confined to the repository before and after the full
   gate, including when invoked from an external directory.
 - Exercise all eight public targets under command-line and environment
@@ -29,6 +41,9 @@ syntax in the configurable Python executable value.
   moderation policy, dependency versions, or NLTK resource selection.
 - Do not remove the pinned corpus preparation step or real unittest suite.
 - Preserve exact test secrets as synthetic local fixtures only.
+- Do not claim GNU Make can prevent parse-time execution of caller-supplied
+  startup or extra makefiles. They are rejected or characterized only after GNU
+  Make has already accepted them as caller programs.
 
 ## Verification
 
@@ -37,6 +52,7 @@ syntax in the configurable Python executable value.
 - The authority harness passed 40 public-target/root/shell cases, a literal
   hostile Python path, two Make-syntax rejections, two Makefile-list
   rejections, two startup boundaries, caller `MAKEFLAGS`, ten unsafe modes,
-  and repository cleanup containment.
+  repository cleanup containment, global-override shell rejection, PATH-Python
+  rejection, and a hostile `sitecustomize.py` isolation proof.
 - Python and shell syntax, workflow YAML, `git diff --check`, intended-path,
   artifact, and changed-line credential audits passed.
