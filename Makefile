@@ -50,7 +50,7 @@ ifneq ($(origin MAKEFILE_LIST),file)
 $(error MAKEFILE_LIST must not be overridden)
 endif
 override REPOSITORY_MAKEFILE_LIST := $(value MAKEFILE_LIST)
-override ROOT := $(shell path='$(subst ','"'"',$(value MAKEFILE_LIST))'; path=$$(printf '%s' "$$path" | /usr/bin/sed 's/^ //'); [ -f "$$path" ] || exit 1; directory=$$(/usr/bin/dirname -- "$$path"); CDPATH= cd -- "$$directory" && /bin/pwd -P)
+override ROOT := $(shell path='$(subst ','"'"',$(value MAKEFILE_LIST))'; path=$$(printf '%s' "$$path" | /usr/bin/sed 's/^ //'); [ -f "$$path" ] || exit 1; directory=$$(/usr/bin/dirname -- "$$path"); CDPATH='' cd -- "$$directory" && /bin/pwd -P)
 export ROOT
 ifeq ($(strip $(ROOT)),)
 $(error repository Makefile path could not be resolved)
@@ -74,6 +74,7 @@ PYTHON_FILES := \
 	slack_auth.py \
 	slack_replay.py \
 	slack.py \
+	scripts/check_nltk_data.py \
 	scripts/check_valleybot_contracts.py \
 	scripts/test_web_chat_length_contract.py
 
@@ -94,7 +95,7 @@ lint::
 	cd '$(REPOSITORY_ROOT_LITERAL)' && PYTHONDONTWRITEBYTECODE=1 '$(REPOSITORY_PYTHON_LITERAL)' -I -B -m py_compile $(PYTHON_FILES)
 
 prepare-corpora::
-	REPOSITORY_PYTHON='$(REPOSITORY_PYTHON_LITERAL)' '$(REPOSITORY_ROOT_LITERAL)/scripts/run-python.sh' --module textblob.download_corpora lite
+	REPOSITORY_PYTHON='$(REPOSITORY_PYTHON_LITERAL)' '$(REPOSITORY_ROOT_LITERAL)/scripts/prepare_nltk_data.sh'
 
 test:: prepare-corpora
 	REPOSITORY_PYTHON='$(REPOSITORY_PYTHON_LITERAL)' '$(REPOSITORY_ROOT_LITERAL)/scripts/run-python.sh' '$(REPOSITORY_ROOT_LITERAL)/scripts/check_valleybot_contracts.py'
