@@ -55,6 +55,7 @@ chmod +x "$FAKE_SHELL"
 make_run() {
     "$MAKE_BIN" --no-print-directory "$@"
 }
+MAKE_VERSION=$($MAKE_BIN --version | /usr/bin/head -n 1)
 
 run_case() {
     target=$1
@@ -119,6 +120,19 @@ if (cd "$CONTROL_DIR" && export PYTHON="$ENV_BAD" && make_run --environment-over
     exit 1
 fi
 [ ! -e "$ENV_MARK" ]
+
+ROOT_MARK="$TEMP_ROOT/root-command-syntax"
+ROOT_BAD="\$(shell /usr/bin/touch '$ROOT_MARK')"
+(cd "$CONTROL_DIR" && make_run -f "$MAKEFILE" "ROOT=$ROOT_BAD" "PYTHON=$FAKE_PYTHON" lint) >"$TEMP_ROOT/root-command.out" 2>&1
+case $MAKE_VERSION in
+    *"GNU Make 4.4"*) [ -e "$ROOT_MARK" ] ;;
+    *) [ ! -e "$ROOT_MARK" ] ;;
+esac
+
+ROOT_ENV_MARK="$TEMP_ROOT/root-environment-syntax"
+ROOT_ENV_BAD="\$(shell /usr/bin/touch '$ROOT_ENV_MARK')"
+(cd "$CONTROL_DIR" && export ROOT="$ROOT_ENV_BAD" && make_run --environment-overrides -f "$MAKEFILE" "PYTHON=$FAKE_PYTHON" lint) >"$TEMP_ROOT/root-environment.out" 2>&1
+[ ! -e "$ROOT_ENV_MARK" ]
 
 if (cd "$CONTROL_DIR" && make_run -f "$MAKEFILE" MAKEFILE_LIST=/tmp/untrusted check) >"$TEMP_ROOT/list" 2>&1; then
     exit 1
@@ -194,4 +208,4 @@ for flag in -n --just-print --dry-run --recon -t --touch -q --question -i --igno
     grep -Fq 'non-executing or error-ignoring MAKEFLAGS are not supported' "$TEMP_ROOT/flag"
 done
 
-printf '%s\n' 'Make authority tests passed: 40 target/authority cases, literal hostile Python path, 2 raw Make-syntax rejections, MAKEFILE_LIST command rejection and safe environment neutralization, 2 startup-boundary cases, cleanup containment, global override shell rejection, PATH-Python rejection, isolated Python startup, caller MAKEFLAGS rejection, and 10 unsafe mode rejections'
+printf '%s\n' 'Make authority tests passed: 40 target/authority cases, literal hostile Python path, 4 raw Make-syntax controls with the GNU Make 4.4 command-root pre-load boundary, MAKEFILE_LIST command rejection and safe environment neutralization, 2 startup-boundary cases, cleanup containment, global override shell rejection, PATH-Python rejection, isolated Python startup, caller MAKEFLAGS rejection, and 10 unsafe mode rejections'

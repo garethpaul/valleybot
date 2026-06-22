@@ -15,6 +15,11 @@ files, extra `-f` makefiles, global or target-specific `override` directives,
 replacement or double-colon recipes, and caller-selected `SHELL`,
 `.SHELLFLAGS`, `PATH`, or tool variables.
 
+GNU Make 4.4 also expands Make syntax in a command-line `ROOT` value while
+processing a simultaneous command-line `PYTHON` override, before this Makefile
+can replace `ROOT`. That pre-load expression is caller authority; environment
+`ROOT` values remain neutralized without expansion.
+
 ## Requirements
 
 - Derive the repository root only from the reviewed Makefile path.
@@ -50,7 +55,8 @@ replacement or double-colon recipes, and caller-selected `SHELL`,
 - Repository and external-directory `make check` passed 70 dependency-free
   contracts, five web-chat mutations, and 41 real unit tests.
 - The authority harness passed 40 public-target/root/shell cases, a literal
-  hostile Python path, two Make-syntax rejections, two Makefile-list
+  hostile Python path, four Make-syntax controls including the GNU Make 4.4
+  command-root pre-load boundary, two Makefile-list
   rejections, two startup boundaries, caller `MAKEFLAGS`, ten unsafe modes,
   repository cleanup containment, global-override shell rejection, PATH-Python
   rejection, and a hostile `sitecustomize.py` isolation proof.

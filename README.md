@@ -89,6 +89,11 @@ The setup commands above are derived from repository files. Legacy mobile, Pytho
   reject PATH-shadowed defaults, and use isolated Python startup (`-I -B`) to
   ignore `PYTHONPATH`, user-site packages, and `sitecustomize.py`. Hosted checks
   invoke `/usr/bin/make` explicitly without additional Make programs.
+- GNU Make 4.4 expands Make syntax in a command-line `ROOT` value while
+  processing the simultaneous trusted `PYTHON` override, before the reviewed
+  Makefile can replace `ROOT`. Do not pass Make expressions in command-line
+  `ROOT`; that pre-load expression is caller authority. Environment `ROOT`
+  values remain neutralized without expansion.
 - `make prepare-corpora` installs and verifies the current TextBlob tokenizer
   and tagger data in the existing project-local `nltk_data` directory. Heroku
   runs the same step through `bin/post_compile`.
