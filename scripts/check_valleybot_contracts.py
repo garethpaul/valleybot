@@ -563,6 +563,8 @@ def test_make_authority_boundary_is_truthful():
             "global or target-specific `override` directives",
             "replacement or double-colon recipes",
             "caller-selected `SHELL`, `.SHELLFLAGS`, `PATH`, or tool variables",
+            "GNU Make 4.4",
+            "command-line `ROOT` value",
         ):
             assert_true(contract in document, "{0} must document {1}".format(document_name, contract))
 
@@ -571,6 +573,7 @@ def test_make_authority_boundary_is_truthful():
         "global override shell rejection",
         "PATH-Python rejection",
         "isolated Python startup",
+        "4 raw Make-syntax controls with the GNU Make 4.4 command-root pre-load boundary",
     ):
         assert_true(contract in authority_test, "Make authority harness must include {0}".format(contract))
 

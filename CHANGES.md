@@ -2,6 +2,8 @@
 
 ## 2026-06-21
 
+- Documented and reproduced GNU Make 4.4's command-line `ROOT` pre-load
+  expression boundary while preserving environment-root neutralization.
 - Isolated Make verification authority from caller-controlled roots, shells,
   startup files, Makefile lists, unsafe execution modes, and executable Make
   syntax while preserving repository-contained bytecode cleanup.
