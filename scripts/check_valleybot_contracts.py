@@ -372,6 +372,10 @@ def test_completed_plans_are_in_docs_plans():
     assert_completed_plan(MESSENGER_BATCH_PLAN_PATH, "Messenger batch processing bound")
     assert_completed_plan(MAKE_ROOT_PROTECTION_PLAN_PATH, "Make root override protection")
     assert_completed_plan(MODERATION_REVIEW_PLAN_PATH, "moderation review guide")
+    assert_completed_plan(
+        MODERATION_TOKEN_BOUNDARIES_PLAN_PATH,
+        "moderation token boundaries",
+    )
     assert_completed_plan(CODEQL_ANALYSIS_PLAN_PATH, "CodeQL analysis")
     assert_completed_plan(MESSENGER_CHALLENGE_ESCAPE_PLAN_PATH, "Messenger challenge escaping")
     assert_completed_plan(MAKEFILE_LOCATION_ROOT_PLAN_PATH, "Makefile location root")
@@ -1610,6 +1614,22 @@ def test_moderation_review_guide_is_auditable():
         assert_true(
             "punctuation and non-space whitespace" in " ".join(document.split()),
             "{0} must document moderation token boundaries".format(label),
+        )
+    token_plan = MODERATION_TOKEN_BOUNDARIES_PLAN_PATH.read_text(encoding="utf-8")
+    for evidence in (
+            "43 runtime tests",
+            "73 dependency-free contract tests",
+            "All five Make gates",
+            "absolute-Makefile",
+            "Six isolated hostile mutations were rejected",
+            "28165931656",
+            "28165933669",
+            "Codex review",
+            "`config.py` remained unchanged",
+            "git diff --check"):
+        assert_true(
+            evidence in token_plan,
+            "moderation token plan must record {0}".format(evidence),
         )
 
 
