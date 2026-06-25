@@ -1,5 +1,11 @@
 # Changes
 
+## 2026-06-25
+
+- Hardened final-output moderation tokenization across punctuation and
+  non-space whitespace boundaries without changing reviewed response or
+  blocklist content.
+
 ## 2026-06-21
 
 - Documented and reproduced GNU Make 4.4's command-line `ROOT` pre-load

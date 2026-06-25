@@ -40,6 +40,8 @@ Priority:
   by default
 - Keep outbound request timeout configuration bounded and non-crashing
 - Maintain the response filter and tests
+- Keep blocked-prefix checks effective across punctuation and non-space
+  whitespace boundaries
 - Keep the dependency-free `make check` baseline running in GitHub Actions
 - Keep pinned CodeQL coverage for GitHub Actions and Python with job-scoped
   upload permission
