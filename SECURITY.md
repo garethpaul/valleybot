@@ -50,10 +50,12 @@ verification, JSON parsing, response generation, or outbound API calls.
 Messenger POST requests must use the `application/json` media type; optional
 parameters and case differences are accepted, while other types return 415
 before signature verification or JSON parsing.
-Recent non-empty Messenger message IDs are claimed before outbound replies in a
-bounded process-local cache. Duplicate deliveries are acknowledged without a
-second reply, and outbound exceptions release their claim. This protection
-does not span multiple workers or process restarts.
+Recent non-empty Messenger message IDs are claimed before outbound replies in
+process-local state. Successful replies move their IDs into a bounded completed
+cache; duplicate deliveries are acknowledged without a second reply, and
+outbound exceptions release their claim. This protection does not span multiple
+workers or process restarts.
+In-flight Messenger message-ID claims are never capacity-evicted; only completed claims enter the bounded replay cache.
 Provider HTTP errors propagate through the webhook handler and release any
 message-ID claim so a later provider delivery can retry the outbound reply.
 Each signed webhook processes at most 20 valid user messages in payload order,
