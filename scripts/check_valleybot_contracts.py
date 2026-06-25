@@ -1218,10 +1218,28 @@ def test_recent_message_ids_evicts_oldest_claims_at_bound():
     recent = app.RecentMessageIds(2)
 
     assert_true(recent.claim("mid-1"), "first replay claim")
+    recent.complete("mid-1")
     assert_true(recent.claim("mid-2"), "second replay claim")
+    recent.complete("mid-2")
     assert_true(recent.claim("mid-3"), "third replay claim")
+    recent.complete("mid-3")
     assert_true(not recent.claim("mid-3"), "newest replay claim must remain protected")
     assert_true(recent.claim("mid-1"), "oldest replay claim must be evicted")
+
+
+def test_recent_message_ids_never_evicts_inflight_claims():
+    app, _request, _response, _requests = load_app()
+    recent = app.RecentMessageIds(2)
+
+    assert_true(recent.claim("mid-inflight"), "in-flight replay claim")
+    for message_id in ("mid-1", "mid-2", "mid-3"):
+        assert_true(recent.claim(message_id), "completed replay claim")
+        recent.complete(message_id)
+
+    assert_true(
+        not recent.claim("mid-inflight"),
+        "capacity eviction must not release an in-flight replay claim",
+    )
 
 
 def test_messenger_post_releases_claim_when_reply_fails():
@@ -1261,16 +1279,37 @@ def test_messenger_replay_source_contracts():
             "MAX_RECENT_MESSENGER_MESSAGE_IDS = 1024",
             "class RecentMessageIds(object):",
             "self._lock = threading.Lock()",
-            "self._ids.popitem(last=False)",
+            "self._inflight = set()",
+            "self._completed = OrderedDict()",
+            "self._completed.popitem(last=False)",
             "message_id = message.get('mid')",
             "recent_messenger_message_ids.claim(message_id)",
+            "recent_messenger_message_ids.complete(message_id)",
             "recent_messenger_message_ids.release(message_id)"):
         assert_true(contract in source, "missing Messenger replay contract {0}".format(contract))
 
     claim_position = source.index("recent_messenger_message_ids.claim(message_id)")
     reply_position = source.index("messenger_reply(sender, message)")
+    complete_position = source.index("recent_messenger_message_ids.complete(message_id)")
     release_position = source.index("recent_messenger_message_ids.release(message_id)")
-    assert_true(claim_position < reply_position < release_position, "claim, reply, and failure release must stay ordered")
+    assert_true(
+        claim_position < reply_position < complete_position < release_position,
+        "claim, reply, completion, and failure release must stay ordered",
+    )
+
+    guidance = (
+        "In-flight Messenger message-ID claims are never capacity-evicted; "
+        "only completed claims enter the bounded replay cache."
+    )
+    for relative_path in ("README.md", "SECURITY.md", "VISION.md", "CHANGES.md"):
+        document = " ".join(
+            (ROOT / relative_path).read_text(encoding="utf-8").split()
+        )
+        assert_true(guidance in document, "{0} must document in-flight replay claims".format(relative_path))
+    assert_completed_plan(
+        ROOT / "docs" / "plans" / "2026-06-25-messenger-inflight-replay-claims.md",
+        "Messenger in-flight replay claim",
+    )
 
 
 def test_messenger_batch_source_contracts():
@@ -1298,10 +1337,12 @@ def test_messenger_batch_source_contracts():
     loop_position = source.index("for sender, message, message_id in messages:")
     claim_position = source.index("recent_messenger_message_ids.claim(message_id)", loop_position)
     reply_position = source.index("messenger_reply(sender, message)", loop_position)
+    complete_position = source.index("recent_messenger_message_ids.complete(message_id)", loop_position)
     release_position = source.index("recent_messenger_message_ids.release(message_id)", loop_position)
     assert_true(
-        parse_position < loop_position < claim_position < reply_position < release_position,
-        "bounded extraction and per-message claim, reply, and release must stay ordered",
+        parse_position < loop_position < claim_position < reply_position <
+        complete_position < release_position,
+        "bounded extraction and per-message claim, reply, completion, and release must stay ordered",
     )
 
     docs = {
@@ -2053,6 +2094,7 @@ def main():
         test_messenger_post_suppresses_replayed_message_ids,
         test_messenger_post_preserves_messages_without_ids,
         test_recent_message_ids_evicts_oldest_claims_at_bound,
+        test_recent_message_ids_never_evicts_inflight_claims,
         test_messenger_post_releases_claim_when_reply_fails,
         test_messenger_post_ignores_malformed_message_ids_for_compatibility,
         test_messenger_replay_source_contracts,

@@ -111,6 +111,10 @@ The setup commands above are derived from repository files. Legacy mobile, Pytho
   execution-authority and cleanup-containment boundary.
 - See `docs/plans/2026-06-13-messenger-message-replay-guard.md` for the bounded
   process-local Messenger retry guard.
+- In-flight Messenger message-ID claims are never capacity-evicted; only
+  completed claims enter the bounded replay cache.
+- See `docs/plans/2026-06-25-messenger-inflight-replay-claims.md` for the
+  concurrent replay-claim lifecycle.
 - See `docs/plans/2026-06-13-messenger-batch-processing-bound.md` for ordered,
   capped multi-message webhook processing.
 - See `docs/plans/2026-06-17-web-chat-input-length.md` for the public web-chat

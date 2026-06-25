@@ -1,10 +1,32 @@
 # Changes
 
+## 2026-06-25T21:16:14Z — P1 concurrency/correctness — cycle: Messenger in-flight replay claims
+
+- Threads: inspected the explicit Apache 2.0 license, default branch, open pull
+  requests and issues, hosted checks, Messenger signature and media-type gates,
+  batch ordering, provider failure release, message-ID replay state, Slack
+  replay state, outbound timeouts, runtime tests, and dependency-free contracts.
+- Bug fixed: replay-cache capacity can no longer evict an in-flight Messenger
+  message ID while its outbound reply is pending, preventing a concurrent retry
+  from generating a duplicate reply.
+- Files: `app.py`, `scripts/check_valleybot_contracts.py`, replay security and
+  maintenance documentation, and
+  `docs/plans/2026-06-25-messenger-inflight-replay-claims.md`.
+- Validation: reproduced the missing completion state as an `AttributeError`,
+  then passed seventy-four dependency-free contracts, forty-three Bottle/bot
+  runtime tests, five web-chat mutations, full Python 3.14 `make check`, and
+  dependency compatibility checks.
+- Blockers: no live Messenger webhook or provider request was sent; hosted
+  Python 3.10/3.12/3.14 verification remains required before merge.
+- Next: load-test concurrent signed retries near replay-cache capacity and
+  evaluate a shared durable replay store for multi-worker deployments.
+
 ## 2026-06-25
 
 - Hardened final-output moderation tokenization across punctuation and
   non-space whitespace boundaries without changing reviewed response or
   blocklist content.
+- In-flight Messenger message-ID claims are never capacity-evicted; only completed claims enter the bounded replay cache.
 
 ## 2026-06-21
 

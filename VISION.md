@@ -28,6 +28,7 @@ Priority:
 - Reject blank or non-text Messenger messages before response generation
 - Suppress duplicate Messenger replies from retried message IDs with bounded
   process-local state
+- In-flight Messenger message-ID claims are never capacity-evicted; only completed claims enter the bounded replay cache.
 - Process Messenger message batches in order with a fixed per-webhook cap
 - Keep Messenger reply behavior independent of client-controlled debug fields
 - Fail Messenger replies on provider HTTP errors so webhook retries remain

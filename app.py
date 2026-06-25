@@ -27,21 +27,28 @@ MAX_WEB_CHAT_CHARACTERS = 1000
 class RecentMessageIds(object):
     def __init__(self, max_entries):
         self.max_entries = max_entries
-        self._ids = OrderedDict()
+        self._inflight = set()
+        self._completed = OrderedDict()
         self._lock = threading.Lock()
 
     def claim(self, message_id):
         with self._lock:
-            if message_id in self._ids:
+            if message_id in self._inflight or message_id in self._completed:
                 return False
-            self._ids[message_id] = None
-            while len(self._ids) > self.max_entries:
-                self._ids.popitem(last=False)
+            self._inflight.add(message_id)
             return True
+
+    def complete(self, message_id):
+        with self._lock:
+            self._inflight.discard(message_id)
+            self._completed[message_id] = None
+            while len(self._completed) > self.max_entries:
+                self._completed.popitem(last=False)
 
     def release(self, message_id):
         with self._lock:
-            self._ids.pop(message_id, None)
+            self._inflight.discard(message_id)
+            self._completed.pop(message_id, None)
 
 
 recent_messenger_message_ids = RecentMessageIds(
@@ -158,6 +165,8 @@ def messenger_post():
             continue
         try:
             messenger_reply(sender, message)
+            if message_id:
+                recent_messenger_message_ids.complete(message_id)
         except Exception:
             if message_id:
                 recent_messenger_message_ids.release(message_id)
