@@ -84,6 +84,28 @@ class BotTest(unittest.TestCase):
 
         self.assertEqual(bot.safe_response(response), response)
 
+    def testFilteredResponseRejectsPunctuationPrefixedBlockedTerm(self):
+        blocked_term = next(iter(bot.config.FILTER_WORDS))
+        original_choice = bot.random.choice
+        bot.random.choice = lambda responses: responses[0]
+        try:
+            response = bot.safe_response("reviewed (!{0})".format(blocked_term))
+        finally:
+            bot.random.choice = original_choice
+
+        self.assertEqual(response, bot.config.NONE_RESPONSES[0])
+
+    def testFilteredResponseRejectsBlockedTermAfterNewline(self):
+        blocked_term = next(iter(bot.config.FILTER_WORDS))
+        original_choice = bot.random.choice
+        bot.random.choice = lambda responses: responses[0]
+        try:
+            response = bot.safe_response("reviewed\n{0}".format(blocked_term))
+        finally:
+            bot.random.choice = original_choice
+
+        self.assertEqual(response, bot.config.NONE_RESPONSES[0])
+
     def testNltkResourcePathGuardRejectsEncodedTraversal(self):
         unsafe_resources = (
             "nltk:%2fetc%2fpasswd",

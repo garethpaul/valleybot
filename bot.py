@@ -5,6 +5,7 @@ from __future__ import print_function, unicode_literals
 import random
 import logging
 import os
+import re
 import config
 import nltk
 from nltk_guard import install_nltk_load_guard
@@ -271,8 +272,8 @@ def find_candidate_parts_of_speech(parsed):
 
 def filter_response(resp):
     """Don't allow any words to match our filter list"""
-    tokenized = resp.split(' ')
+    tokenized = re.findall(r"[^\W_]+", resp.lower(), flags=re.UNICODE)
     for word in tokenized:
         for s in config.FILTER_WORDS:
-            if word.lower().startswith(s):
+            if word.startswith(s):
                 raise UnacceptableUtteranceException()

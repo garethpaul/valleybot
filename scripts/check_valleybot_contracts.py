@@ -77,6 +77,9 @@ MAKE_ROOT_PROTECTION_PLAN_PATH = (
 MODERATION_REVIEW_PLAN_PATH = (
     ROOT / "docs" / "plans" / "2026-06-14-moderation-review-guide.md"
 )
+MODERATION_TOKEN_BOUNDARIES_PLAN_PATH = (
+    ROOT / "docs" / "plans" / "2026-06-25-moderation-token-boundaries.md"
+)
 CODEQL_ANALYSIS_PLAN_PATH = (
     ROOT / "docs" / "plans" / "2026-06-14-codeql-analysis.md"
 )
@@ -1567,6 +1570,13 @@ def test_filtered_responses_use_reviewed_fallback():
     assert_true("Generated response rejected by content filter" in source, "content filter rejections must keep a content-free diagnostic")
     assert_true("testFilteredResponseUsesReviewedFallback" in runtime_tests, "runtime tests must cover filtered response fallback")
     assert_true("testAcceptableResponsePassesThroughFilter" in runtime_tests, "runtime tests must cover accepted response passthrough")
+    assert_true("testFilteredResponseRejectsPunctuationPrefixedBlockedTerm" in runtime_tests, "runtime tests must cover punctuation-prefixed blocked terms")
+    assert_true("testFilteredResponseRejectsBlockedTermAfterNewline" in runtime_tests, "runtime tests must cover blocked terms after non-space whitespace")
+    assert_true(
+        're.findall(r"[^\\W_]+", resp.lower(), flags=re.UNICODE)' in source,
+        "content filtering must use the reviewed Unicode word-token boundary",
+    )
+    assert_true("resp.split(' ')" not in source, "content filtering must not split only on literal spaces")
 
 
 def test_moderation_review_guide_is_auditable():
@@ -1591,6 +1601,16 @@ def test_moderation_review_guide_is_auditable():
     assert_true("docs/plans/2026-06-14-moderation-review-guide.md" in readme, "README must link the moderation plan")
     assert_true("Require auditable human review" in vision, "VISION must preserve moderation review")
     assert_true("mandatory human moderation checklist" in changes, "CHANGES must record moderation guide")
+    for document, label in (
+            (guide, "moderation guide"),
+            (readme, "README"),
+            ((ROOT / "SECURITY.md").read_text(encoding="utf-8"), "SECURITY"),
+            (vision, "VISION"),
+            (changes, "CHANGES")):
+        assert_true(
+            "punctuation and non-space whitespace" in " ".join(document.split()),
+            "{0} must document moderation token boundaries".format(label),
+        )
 
 
 def test_slack_command_requires_valid_signature():

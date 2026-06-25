@@ -149,6 +149,8 @@ When the required SDK or runtime is unavailable, use static checks and source re
 - See `MODERATION.md` for the mandatory human review checklist covering
   response templates, blocked terms, fallbacks, regression fixtures, channel
   consistency, private-data exclusions, and review evidence.
+- The final-output filter tokenizes across punctuation and non-space whitespace
+  boundaries so formatting cannot hide a known blocked prefix.
 
 - Review changes touching authentication or token handling; examples from the scan include nltk_data/corpora/movie_reviews/neg/cv000_29416.txt, nltk_data/corpora/movie_reviews/neg/cv067_21192.txt, nltk_data/corpora/movie_reviews/neg/cv074_7188.txt, nltk_data/corpora/movie_reviews/neg/cv144_5010.txt, and 3 more.
 - Review changes touching network requests, sockets, or service endpoints; examples from the scan include app.json, app.py, docs/bugs/p2-python-http-call-without-timeout-a07c6a4bb0ee865f.md, nltk_data/corpora/conll2000/test.txt, and 5 more.

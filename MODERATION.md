@@ -4,6 +4,8 @@ Valleybot is a historical stereotype-based chatbot. Every change to response
 templates, blocked terms, or fallback text requires human content review before
 merge. The prefix filter in `bot.filter_response` is a narrow final-output
 guard, not a complete moderation system.
+It tokenizes across punctuation and non-space whitespace boundaries before
+matching known blocked prefixes, so formatting alone cannot hide a listed term.
 
 ## Review Scope
 

@@ -60,6 +60,9 @@ Each signed webhook processes at most 20 valid user messages in payload order,
 limiting outbound reply amplification while preserving per-message replay
 claims and failure release.
 Unknown top-level fields, including `debug`, do not suppress valid Messenger replies.
+Generated responses are tokenized across punctuation and non-space whitespace
+boundaries before blocked-prefix checks; this remains a narrow final-output
+guard rather than a complete moderation system.
 
 For web services, APIs, sockets, or scraping workflows, prioritize reports involving authentication bypass, authorization errors, injection, server-side request forgery, unsafe deserialization, credential leakage, data exposure, or denial-of-service conditions. Use test accounts and minimal proof-of-concept traffic only.
 

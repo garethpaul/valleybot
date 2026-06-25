@@ -51,6 +51,8 @@
 - `MESSENGER_VERIFY_TOKEN` configures Messenger webhook verification; missing
   values fail closed and never fall back to `MESSENGER_TOKEN`.
 - `REQUEST_TIMEOUT` optionally overrides outbound Messenger request timeout seconds; invalid, non-finite, or non-positive values fall back to `5.0`.
+- Preserve punctuation and non-space whitespace token boundaries in the final
+  response filter; changes to moderation text still require human review.
 - See `SECURITY.md` for vulnerability reporting and safe research guidance.
 - See `VISION.md` for project direction and contribution guardrails.
 
