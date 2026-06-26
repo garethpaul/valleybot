@@ -113,6 +113,9 @@ NLTK_RESOURCE_GUARD_PLAN_PATH = (
 MAKE_AUTHORITY_PLAN_PATH = (
     ROOT / "docs" / "plans" / "2026-06-21-make-authority-isolation.md"
 )
+PYTHON_NLTK_SETUP_PLAN_PATH = (
+    ROOT / "docs" / "plans" / "2026-06-25-python-nltk-setup.md"
+)
 
 
 class FakeBottle:
@@ -392,6 +395,7 @@ def test_completed_plans_are_in_docs_plans():
     assert_completed_plan(WEB_CHAT_LENGTH_PLAN_PATH, "web chat input length")
     assert_completed_plan(NLTK_RESOURCE_GUARD_PLAN_PATH, "NLTK resource path guard")
     assert_completed_plan(MAKE_AUTHORITY_PLAN_PATH, "Make authority isolation")
+    assert_completed_plan(PYTHON_NLTK_SETUP_PLAN_PATH, "Python and NLTK setup")
     registered = registered_main_tests(
         (ROOT / "scripts" / "check_valleybot_contracts.py").read_text(encoding="utf-8")
     )
@@ -702,6 +706,29 @@ def test_prepare_corpora_uses_project_local_nltk_data_contract():
         "and tagger data in the existing project-local `nltk_data` directory"
         in normalized_readme,
         "README must truthfully describe make prepare-corpora resource path",
+    )
+
+
+def test_python_nltk_setup_documentation_contract():
+    readme = (ROOT / "README.md").read_text(encoding="utf-8")
+    vision = (ROOT / "VISION.md").read_text(encoding="utf-8")
+    changes = (ROOT / "CHANGES.md").read_text(encoding="utf-8")
+    for contract in (
+            "python3.14 -m venv .venv",
+            "source .venv/bin/activate",
+            'make prepare-corpora PYTHON="$(command -v python)"',
+            'make check PYTHON="$(command -v python)"',
+            "downloads the TextBlob `lite` corpora",
+            "project-local `nltk_data` directory",
+            "If TextBlob reports a missing NLTK resource"):
+        assert_true(contract in readme, "README must retain setup contract {0}".format(contract))
+    assert_true(
+        "Document Python version and NLTK/TextBlob setup" not in vision,
+        "VISION must remove the completed Python and NLTK setup priority",
+    )
+    assert_true(
+        "same-interpreter Python and NLTK setup" in changes,
+        "CHANGES must record the Python and NLTK setup contract",
     )
 
 
@@ -2117,6 +2144,7 @@ def main():
         test_nltk_resource_path_guard_contracts,
         test_shell_entrypoints_use_portable_cdpath_reset,
         test_prepare_corpora_uses_project_local_nltk_data_contract,
+        test_python_nltk_setup_documentation_contract,
         test_messenger_post_rejects_oversized_declared_body,
         test_messenger_post_rejects_oversized_streamed_body,
         test_messenger_post_rejects_invalid_signature,

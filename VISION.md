@@ -56,7 +56,6 @@ Priority:
 
 Next priorities:
 
-- Document Python version and NLTK/TextBlob setup
 - Separate deployment packaging from bot behavior changes
 
 Contribution rules:
