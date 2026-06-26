@@ -36,6 +36,10 @@ second time.
   startup and override cases passed.
 - Python 3.14 `make check` — 75 dependency-free contracts, 43 Bottle/bot
   runtime tests, five existing web-chat mutations, syntax, and corpus checks passed.
+- Hosted runs `28214128990` and `28214129936` — Python 3.10/3.12/3.14 and
+  Actions/Python CodeQL passed on the reviewed implementation head.
+- Codex review — attempted as requested but blocked by OpenAI API HTTP 401;
+  manual exact-head concurrency, security, and regression review found no findings.
 
 ### Bugs / findings
 
@@ -43,11 +47,13 @@ second time.
 
 ### Blockers
 
-- No live Slack webhook was sent; hosted matrices remain before merge.
+- No live Slack webhook was sent; multi-worker global replay suppression still
+  requires a shared store.
 
 ### Next action
 
-- Run `make check`, review the exact head, and merge only after hosted checks pass.
+- Merge the final hosted-green head, then load-test concurrent valid retries
+  near replay-cache capacity.
 
 ## 2026-06-25T21:16:14Z — P1 concurrency/correctness — cycle: Messenger in-flight replay claims
 

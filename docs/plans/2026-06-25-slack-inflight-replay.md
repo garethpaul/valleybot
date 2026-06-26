@@ -64,5 +64,10 @@ Status: Completed
   mutations were rejected.
 - Python 3.14 `make check` passed the 43 Bottle/bot runtime tests, syntax and
   corpus checks, and all 40 Make target/authority cases.
-- No live Slack webhook was sent; hosted Python 3.10/3.12/3.14 and CodeQL
-  verification remains required before merge.
+- Hosted runs `28214128990` and `28214129936` passed Python 3.10, Python 3.12,
+  Python 3.14, Actions CodeQL, and Python CodeQL on commit
+  `8874e42b319d92f22ff930a8f4d48afbb807c697`.
+- `codex review --base origin/master` was attempted but could not authenticate
+  to the OpenAI API (HTTP 401); manual exact-head review found no findings.
+- No live Slack webhook was sent; multi-worker global replay suppression still
+  requires a shared store.
