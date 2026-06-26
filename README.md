@@ -19,6 +19,7 @@ This README is based on the checked-in source, manifests, scripts, and repositor
 - `docs` - source or example code
 - `nltk_data` - source or example code
 - `Procfile`
+- [`DEPLOYMENT.md`](DEPLOYMENT.md) - deployment packaging ownership and validation
 - `SECURITY.md` - security reporting and disclosure guidance
 - `VISION.md` - project direction and maintenance guardrails
 
@@ -68,6 +69,8 @@ reviewed project-local corpus directory.
 
 - Run `python app.py` after installing Python dependencies. Bottle debug mode
   remains off unless `BOTTLE_DEBUG=true` is explicitly set for local work.
+- Keep provider packaging changes within the file ownership and validation
+  boundary documented in [`DEPLOYMENT.md`](DEPLOYMENT.md).
 
 ## Testing and Verification
 

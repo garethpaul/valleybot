@@ -1,5 +1,42 @@
 # Changes
 
+## 2026-06-26T06:23:47Z — P2 documentation/reviewability — cycle: deployment packaging boundary
+
+### Summary
+
+Separated deployment packaging review from bot behavior changes with an
+explicit file-ownership, configuration, validation, and rollback guide.
+
+### Work completed
+
+- Defined `.python-version`, `requirements.txt`, `Procfile`, `app.json`, and
+  `bin/post_compile` as the packaging-owned surface.
+- Kept routes, authentication, moderation, responses, request limits, retries,
+  and provider API behavior outside packaging-only PRs.
+- Documented provider-owned secrets, runtime `PORT`, project-local corpus
+  preparation, offline validation, hosted matrix evidence, and rollback scope.
+- Linked the guide from README and closed the final explicit roadmap item.
+- Added a dependency-free deployment documentation contract and completed plan.
+
+### Threads
+
+- None; this focused documentation boundary was implemented directly.
+
+### Files changed
+
+- `DEPLOYMENT.md` — packaging ownership and validation guide.
+- `README.md`, `VISION.md`, and `CHANGES.md` — navigation and roadmap state.
+- `scripts/check_valleybot_contracts.py` — frozen documentation contract.
+- `docs/plans/2026-06-25-deployment-packaging-boundary.md` — completed plan.
+
+### Validation
+
+- Focused deployment documentation contract passed after failing on the
+  missing guide and plan.
+- Python 3.14 `make check` passed 77 dependency-free contracts, 43 runtime
+  tests, 11 hostile mutations, corpus verification, and the 40-case Make
+  authority matrix; JSON and shell syntax checks also passed.
+
 ## 2026-06-26T06:20:42Z — P2 documentation/reproducibility — cycle: Python and NLTK setup
 
 ### Summary

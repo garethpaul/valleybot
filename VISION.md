@@ -56,7 +56,8 @@ Priority:
 
 Next priorities:
 
-- Separate deployment packaging from bot behavior changes
+- No unclaimed roadmap item; select future work from reproduced defects,
+  dependency advisories, or reviewed integration needs.
 
 Contribution rules:
 

@@ -116,6 +116,9 @@ MAKE_AUTHORITY_PLAN_PATH = (
 PYTHON_NLTK_SETUP_PLAN_PATH = (
     ROOT / "docs" / "plans" / "2026-06-25-python-nltk-setup.md"
 )
+DEPLOYMENT_PACKAGING_PLAN_PATH = (
+    ROOT / "docs" / "plans" / "2026-06-25-deployment-packaging-boundary.md"
+)
 
 
 class FakeBottle:
@@ -396,6 +399,7 @@ def test_completed_plans_are_in_docs_plans():
     assert_completed_plan(NLTK_RESOURCE_GUARD_PLAN_PATH, "NLTK resource path guard")
     assert_completed_plan(MAKE_AUTHORITY_PLAN_PATH, "Make authority isolation")
     assert_completed_plan(PYTHON_NLTK_SETUP_PLAN_PATH, "Python and NLTK setup")
+    assert_completed_plan(DEPLOYMENT_PACKAGING_PLAN_PATH, "deployment packaging boundary")
     registered = registered_main_tests(
         (ROOT / "scripts" / "check_valleybot_contracts.py").read_text(encoding="utf-8")
     )
@@ -729,6 +733,37 @@ def test_python_nltk_setup_documentation_contract():
     assert_true(
         "same-interpreter Python and NLTK setup" in changes,
         "CHANGES must record the Python and NLTK setup contract",
+    )
+
+
+def test_deployment_packaging_documentation_contract():
+    deployment = (ROOT / "DEPLOYMENT.md").read_text(encoding="utf-8")
+    readme = (ROOT / "README.md").read_text(encoding="utf-8")
+    vision = (ROOT / "VISION.md").read_text(encoding="utf-8")
+    changes = (ROOT / "CHANGES.md").read_text(encoding="utf-8")
+    for contract in (
+            ".python-version",
+            "requirements.txt",
+            "Procfile",
+            "app.json",
+            "bin/post_compile",
+            "Packaging-only changes must not edit",
+            "python -m json.tool app.json",
+            "bash -n bin/post_compile",
+            'make check PYTHON="$(command -v python)"',
+            "Deployment secrets remain provider configuration"):
+        assert_true(contract in deployment, "DEPLOYMENT must retain {0}".format(contract))
+    assert_true(
+        "[`DEPLOYMENT.md`](DEPLOYMENT.md)" in readme,
+        "README must link the deployment boundary guide",
+    )
+    assert_true(
+        "Separate deployment packaging from bot behavior changes" not in vision,
+        "VISION must remove the completed deployment packaging priority",
+    )
+    assert_true(
+        "deployment packaging boundary" in changes,
+        "CHANGES must record the deployment packaging boundary",
     )
 
 
@@ -2145,6 +2180,7 @@ def main():
         test_shell_entrypoints_use_portable_cdpath_reset,
         test_prepare_corpora_uses_project_local_nltk_data_contract,
         test_python_nltk_setup_documentation_contract,
+        test_deployment_packaging_documentation_contract,
         test_messenger_post_rejects_oversized_declared_body,
         test_messenger_post_rejects_oversized_streamed_body,
         test_messenger_post_rejects_invalid_signature,
