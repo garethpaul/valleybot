@@ -68,6 +68,7 @@ PYTHON_FILES := \
 	app.py \
 	bot.py \
 	bot_tests.py \
+	channel_limits.py \
 	config.py \
 	nltk_guard.py \
 	settings.py \

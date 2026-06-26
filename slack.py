@@ -3,6 +3,7 @@ import base64
 from urllib.parse import parse_qs
 import settings
 import bot
+from channel_limits import MAX_CHANNEL_MESSAGE_CHARACTERS
 from slack_auth import MAX_SLACK_REQUEST_BYTES, verify_slack_request
 from slack_replay import RecentSlackSignatures
 
@@ -57,6 +58,8 @@ def slack_handler(event, now=None):
     command_text = clean_text_value(form.get("text", [None])[0])
     if command_text is None:
         return "missing text"
+    if len(command_text) > MAX_CHANNEL_MESSAGE_CHARACTERS:
+        return "text too long"
 
     if not recent_slack_signatures.claim(slack_signature):
         return "ok"

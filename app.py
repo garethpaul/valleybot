@@ -12,6 +12,7 @@ import hashlib
 import json
 import requests
 import settings
+from channel_limits import MAX_CHANNEL_MESSAGE_CHARACTERS
 from slack_auth import MAX_SLACK_REQUEST_BYTES, verify_slack_request
 from slack_replay import RecentSlackSignatures
 
@@ -21,7 +22,7 @@ app = Bottle()
 MAX_MESSENGER_WEBHOOK_BYTES = 1024 * 1024
 MAX_RECENT_MESSENGER_MESSAGE_IDS = 1024
 MAX_MESSENGER_MESSAGES_PER_WEBHOOK = 20
-MAX_WEB_CHAT_CHARACTERS = 1000
+MAX_WEB_CHAT_CHARACTERS = MAX_CHANNEL_MESSAGE_CHARACTERS
 
 
 class RecentMessageIds(object):
@@ -87,6 +88,9 @@ def slack_handler():
     if command_text is None:
         response.status = 400
         return "missing text"
+    if len(command_text) > MAX_CHANNEL_MESSAGE_CHARACTERS:
+        response.status = 413
+        return "text too long"
 
     if not recent_slack_signatures.claim(slack_signature):
         return "ok"
@@ -273,7 +277,8 @@ def parse_messenger_messages(data):
                 message_id = message_id.strip()
             except AttributeError:
                 message_id = None
-            if sender_id and message_text:
+            if (sender_id and message_text and
+                    len(message_text) <= MAX_CHANNEL_MESSAGE_CHARACTERS):
                 messages.append((sender_id, message_text, message_id or None))
                 if len(messages) >= MAX_MESSENGER_MESSAGES_PER_WEBHOOK:
                     return messages

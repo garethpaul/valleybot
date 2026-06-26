@@ -324,6 +324,24 @@ class TestSlack(unittest.TestCase):
         self.assertEqual(response.status_int, 413)
         self.assertEqual(calls, [])
 
+    def test_slack_rejects_oversized_text_before_bot_call(self):
+        original_respond = app.bot.respond
+        calls = []
+        app.bot.respond = lambda text: calls.append(text)
+        try:
+            accepted = self.post_signed_slack(
+                'x' * app.MAX_CHANNEL_MESSAGE_CHARACTERS)
+            response = self.post_signed_slack(
+                'x' * (app.MAX_CHANNEL_MESSAGE_CHARACTERS + 1),
+                expect_errors=True)
+        finally:
+            app.bot.respond = original_respond
+
+        self.assertEqual(accepted.status_int, 200)
+        self.assertEqual(response.status_int, 413)
+        self.assertEqual(response.text, 'text too long')
+        self.assertEqual(calls, ['x' * app.MAX_CHANNEL_MESSAGE_CHARACTERS])
+
 
 class TestFacebook(unittest.TestCase):
     """
@@ -578,6 +596,35 @@ class TestFacebook(unittest.TestCase):
         self.assertEqual(len(calls), app.MAX_MESSENGER_MESSAGES_PER_WEBHOOK)
         self.assertEqual(calls[0], ('user-0', 'message-0'))
         self.assertEqual(calls[-1], ('user-19', 'message-19'))
+
+    def test_facebook_webhook_skips_oversized_message_and_continues(self):
+        calls = []
+        original_reply = app.messenger_reply
+        app.messenger_reply = lambda sender, message: calls.append(
+            (sender, message))
+        events = [
+            {'sender': {'id': 'user-limit'},
+             'message': {
+                 'text': 'x' * app.MAX_CHANNEL_MESSAGE_CHARACTERS,
+                 'mid': 'batch-limit-runtime'}},
+            {'sender': {'id': 'user-large'},
+             'message': {
+                 'text': 'x' * (app.MAX_CHANNEL_MESSAGE_CHARACTERS + 1),
+                 'mid': 'batch-large-runtime'}},
+            {'sender': {'id': 'user-valid'},
+             'message': {'text': 'hello', 'mid': 'batch-valid-runtime'}},
+        ]
+        try:
+            response = self.post_signed_json(
+                {'object': 'page', 'entry': [{'messaging': events}]})
+        finally:
+            app.messenger_reply = original_reply
+
+        self.assertEqual(response.status_int, 200)
+        self.assertEqual(calls, [
+            ('user-limit', 'x' * app.MAX_CHANNEL_MESSAGE_CHARACTERS),
+            ('user-valid', 'hello'),
+        ])
 
     def test_facebook_webhook_rejects_invalid_signature(self):
         body = json.dumps(self.data).encode('utf-8')

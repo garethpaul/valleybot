@@ -57,6 +57,9 @@
   completed claims enter the bounded replay cache.
 - Preserve punctuation and non-space whitespace token boundaries in the final
   response filter; changes to moderation text still require human review.
+- Keep Slack and Messenger message text within the shared channel limit before
+  `bot.respond`; Messenger must skip one oversized event without aborting later
+  valid events in the same bounded batch.
 - See `SECURITY.md` for vulnerability reporting and safe research guidance.
 - See `VISION.md` for project direction and contribution guardrails.
 

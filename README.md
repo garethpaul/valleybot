@@ -140,6 +140,8 @@ reviewed project-local corpus directory.
   capped multi-message webhook processing.
 - See `docs/plans/2026-06-17-web-chat-input-length.md` for the public web-chat
   input boundary and its rate-limiting and execution-time limitations.
+- See `docs/plans/2026-06-26-channel-message-length.md` for the shared Slack
+  and Messenger message-text boundary.
 - `python -m unittest bot_tests` runs the real Bottle/WebTest and bot suite.
 
 When the required SDK or runtime is unavailable, use static checks and source review first, then verify on a machine that has the matching platform toolchain.
@@ -165,6 +167,10 @@ When the required SDK or runtime is unavailable, use static checks and source re
 - Public `/bot` chat input is limited to 1,000 trimmed Unicode characters
   before TextBlob/NLTK response generation. This is a per-request input bound,
   not authentication, aggregate rate limiting, or an execution timeout.
+- Slack and Messenger bot input is limited to 1,000 trimmed Unicode characters
+  before TextBlob/NLTK response generation. Oversized Slack commands are
+  rejected; oversized Messenger events are skipped while later valid events in
+  the same bounded batch continue.
 - URL-encoded NLTK resource paths are decoded and rejected when they resolve
   to absolute or parent-traversing paths before corpus loading.
 - Verified Messenger GET challenges are HTML-escaped before response delivery,
