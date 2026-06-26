@@ -51,6 +51,8 @@
 - `MESSENGER_VERIFY_TOKEN` configures Messenger webhook verification; missing
   values fail closed and never fall back to `MESSENGER_TOKEN`.
 - `REQUEST_TIMEOUT` optionally overrides outbound Messenger request timeout seconds; invalid, non-finite, or non-positive values fall back to `5.0`.
+- In-flight Slack signatures are never capacity-evicted; only completed claims
+  enter the bounded replay cache, and failures release claims for retry.
 - In-flight Messenger message-ID claims are never capacity-evicted; only
   completed claims enter the bounded replay cache.
 - Preserve punctuation and non-space whitespace token boundaries in the final

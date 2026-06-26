@@ -76,6 +76,7 @@ PYTHON_FILES := \
 	slack.py \
 	scripts/check_nltk_data.py \
 	scripts/check_valleybot_contracts.py \
+	scripts/test_slack_replay_mutations.py \
 	scripts/test_web_chat_length_contract.py
 
 build check clean lint prepare-corpora root-test test verify:: $$(if $$(filter file,$$(origin MAKEFILE_LIST)),,$$(error MAKEFILE_LIST must not be overridden))
@@ -99,6 +100,7 @@ prepare-corpora::
 
 test:: prepare-corpora
 	REPOSITORY_PYTHON='$(REPOSITORY_PYTHON_LITERAL)' '$(REPOSITORY_ROOT_LITERAL)/scripts/run-python.sh' '$(REPOSITORY_ROOT_LITERAL)/scripts/check_valleybot_contracts.py'
+	REPOSITORY_PYTHON='$(REPOSITORY_PYTHON_LITERAL)' '$(REPOSITORY_ROOT_LITERAL)/scripts/run-python.sh' '$(REPOSITORY_ROOT_LITERAL)/scripts/test_slack_replay_mutations.py'
 	REPOSITORY_PYTHON='$(REPOSITORY_PYTHON_LITERAL)' '$(REPOSITORY_ROOT_LITERAL)/scripts/run-python.sh' '$(REPOSITORY_ROOT_LITERAL)/scripts/test_web_chat_length_contract.py'
 	cd '$(REPOSITORY_ROOT_LITERAL)' && /usr/bin/env SLACK_SIGNING_SECRET=test-slack-signing-secret MESSENGER_TOKEN=test-page-token MESSENGER_VERIFY_TOKEN=test-verify-token REPOSITORY_PYTHON='$(REPOSITORY_PYTHON_LITERAL)' '$(REPOSITORY_ROOT_LITERAL)/scripts/run-python.sh' '$(REPOSITORY_ROOT_LITERAL)/bot_tests.py'
 
