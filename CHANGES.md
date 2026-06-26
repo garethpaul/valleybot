@@ -1,5 +1,42 @@
 # Changes
 
+## 2026-06-26T06:20:42Z — P2 documentation/reproducibility — cycle: Python and NLTK setup
+
+### Summary
+
+Documented same-interpreter Python and NLTK setup so virtual-environment
+dependency installs cannot silently diverge from Make's `/usr/bin/python3`
+default.
+
+### Work completed
+
+- Made Python 3.14 the deployment-equivalent local recommendation while
+  retaining the tested Python 3.10 and 3.12 support boundary.
+- Added virtual-environment creation, activation, dependency installation,
+  project-local TextBlob corpus preparation, and full verification commands.
+- Explained the required absolute `PYTHON` Make override, downloaded `lite`
+  resources, network boundary, and missing-resource recovery path.
+- Closed the completed Python and NLTK/TextBlob documentation roadmap item.
+- Added a dependency-free contract and completed maintenance plan.
+
+### Threads
+
+- None; this focused documentation contract was implemented directly.
+
+### Files changed
+
+- `README.md`, `VISION.md`, and `CHANGES.md` — setup and roadmap guidance.
+- `scripts/check_valleybot_contracts.py` — frozen documentation contract.
+- `docs/plans/2026-06-25-python-nltk-setup.md` — completed plan and evidence.
+
+### Validation
+
+- Focused setup documentation contract passed after failing on the missing
+  plan and setup guidance.
+- The documented Python 3.14 `.venv` path passed full `make check`: 76
+  dependency-free contracts, 43 runtime tests, 11 hostile mutations, corpus
+  verification, and the 40-case Make authority matrix.
+
 ## 2026-06-26T02:53:26Z — P1 concurrency/correctness — cycle: Slack in-flight replay claims
 
 ### Summary

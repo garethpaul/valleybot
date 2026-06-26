@@ -38,14 +38,31 @@ Additional scan context:
 
 ### Setup
 
+Use Python 3.14 for the deployment-equivalent environment. Python 3.10 and
+3.12 remain supported because the complete gate runs on all three versions.
+Keep dependencies and corpus downloads tied to the same activated interpreter:
+
 ```bash
 git clone https://github.com/garethpaul/valleybot.git
 cd valleybot
+python3.14 -m venv .venv
+source .venv/bin/activate
 python -m pip install -r requirements.txt
-make prepare-corpora
+make prepare-corpora PYTHON="$(command -v python)"
+make check PYTHON="$(command -v python)"
 ```
 
-The setup commands above are derived from repository files. Legacy mobile, Python, or JavaScript samples may require older SDKs or package versions than a modern workstation uses by default.
+`make prepare-corpora` downloads the TextBlob `lite` corpora and verifies the
+Brown corpus, Punkt tokenizer tables, WordNet, and English perceptron tagger in
+the project-local `nltk_data` directory. The command requires network access
+when those resources are absent. Keep the `PYTHON` override on Make commands:
+without it, the Makefile intentionally defaults to `/usr/bin/python3`, which
+may differ from the interpreter where dependencies were installed.
+
+If TextBlob reports a missing NLTK resource, reactivate `.venv` and rerun
+`make prepare-corpora PYTHON="$(command -v python)"`. Do not fix the error by
+pointing `NLTK_DATA` at a user-global directory; verification requires the
+reviewed project-local corpus directory.
 
 ## Running or Using the Project
 
@@ -96,7 +113,8 @@ The setup commands above are derived from repository files. Legacy mobile, Pytho
   values remain neutralized without expansion.
 - `make prepare-corpora` installs and verifies the current TextBlob tokenizer
   and tagger data in the existing project-local `nltk_data` directory. Heroku
-  runs the same step through `bin/post_compile`.
+  runs the same step through `bin/post_compile`; local virtual environments
+  must pass their absolute interpreter through `PYTHON`.
 - `python scripts/check_valleybot_contracts.py` runs just the webhook and token-handling contracts.
 - GitHub Actions installs dependencies and runs the complete gate on Python
   3.10, 3.12, and 3.14 on Ubuntu 24.04 with read-only permissions, immutable
