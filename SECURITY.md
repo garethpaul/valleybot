@@ -89,6 +89,13 @@ characters before TextBlob/NLTK processing. This limits per-request parser and
 tagger input but does not provide authentication, aggregate request-rate
 control, or a hard response-generation timeout.
 
+Slack and Messenger bot input is limited to 1,000 trimmed Unicode characters
+before TextBlob/NLTK processing. This shared per-message bound is enforced
+after channel authentication and normalization: Slack rejects an oversized
+command, while Messenger skips an oversized event and continues later valid
+events in the same bounded batch. It is not an aggregate rate limit or a hard
+response-generation timeout.
+
 NLTK resource loads are wrapped by `nltk_guard.py`. The guard repeatedly
 decodes resource identifiers and rejects absolute or parent-traversing paths
 before `nltk.data.load()` runs, including URL-encoded variants covered by

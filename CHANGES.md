@@ -1,5 +1,46 @@
 # Changes
 
+## 2026-06-26T12:19:26Z — P1 resilience — cycle: channel message length boundary
+
+### Summary
+
+Added a shared 1,000-character Slack and Messenger input boundary before
+authenticated channel text can reach TextBlob/NLTK response generation.
+
+### Work completed
+
+- Centralized the existing web-chat limit as a channel-wide message constant.
+- Rejected oversized commands in both Bottle and standalone Lambda Slack
+  handlers before replay claims or bot execution.
+- Skipped oversized Messenger events while preserving ordered processing of
+  later valid events in the same bounded webhook batch.
+- Added dependency-free and runtime regressions for both channel behaviors.
+- Documented the security scope, batch semantics, and maintenance invariant.
+
+### Threads
+
+- None; this focused input-boundary hardening was implemented directly.
+
+### Files changed
+
+- `channel_limits.py`, `app.py`, and `slack.py` — shared limit and enforcement.
+- `bot_tests.py`, `scripts/check_valleybot_contracts.py`, and
+  `scripts/test_web_chat_length_contract.py` — behavioral, source, and mutation
+  contracts.
+- `README.md`, `SECURITY.md`, `VISION.md`, and `AGENTS.md` — operator and
+  contributor guidance.
+- `docs/plans/2026-06-26-channel-message-length.md` — completed implementation
+  plan and acceptance evidence.
+
+### Validation
+
+- Focused regressions failed before the guards existed and passed afterward.
+- Python 3.14 `make check` passed 81 dependency-free contracts, 45 runtime
+  tests, 11 existing hostile mutations, corpus verification, syntax checks,
+  and the 40-case Make authority matrix from repository and external roots.
+- Five focused hostile mutations were rejected, and `uv pip check` reported all
+  19 installed packages compatible.
+
 ## 2026-06-26T06:23:47Z — P2 documentation/reviewability — cycle: deployment packaging boundary
 
 ### Summary

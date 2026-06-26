@@ -35,6 +35,7 @@ Priority:
   recoverable
 - Reject empty web chat queries before response generation
 - Bound public web chat input before TextBlob/NLTK response generation
+- Bound Slack and Messenger message text before TextBlob/NLTK response generation
 - Render web chat replies as text instead of concatenated HTML
 - Reject malformed low-level bot JSON requests before response generation
 - Avoid logging raw inbound messages, generated responses, or extracted terms

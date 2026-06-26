@@ -119,6 +119,9 @@ PYTHON_NLTK_SETUP_PLAN_PATH = (
 DEPLOYMENT_PACKAGING_PLAN_PATH = (
     ROOT / "docs" / "plans" / "2026-06-25-deployment-packaging-boundary.md"
 )
+CHANNEL_MESSAGE_LENGTH_PLAN_PATH = (
+    ROOT / "docs" / "plans" / "2026-06-26-channel-message-length.md"
+)
 
 
 class FakeBottle:
@@ -400,6 +403,7 @@ def test_completed_plans_are_in_docs_plans():
     assert_completed_plan(MAKE_AUTHORITY_PLAN_PATH, "Make authority isolation")
     assert_completed_plan(PYTHON_NLTK_SETUP_PLAN_PATH, "Python and NLTK setup")
     assert_completed_plan(DEPLOYMENT_PACKAGING_PLAN_PATH, "deployment packaging boundary")
+    assert_completed_plan(CHANNEL_MESSAGE_LENGTH_PLAN_PATH, "channel message length")
     registered = registered_main_tests(
         (ROOT / "scripts" / "check_valleybot_contracts.py").read_text(encoding="utf-8")
     )
@@ -1171,6 +1175,23 @@ def test_messenger_post_caps_valid_batch():
     )
 
 
+def test_messenger_post_skips_oversized_message_and_continues_batch():
+    app, request, _response, requests = load_app()
+    request.json = messenger_batch_payload([
+        messenger_event("user-limit", "x" * 1000, "mid-limit"),
+        messenger_event("user-large", "x" * 1001, "mid-large"),
+        messenger_event("user-valid", "hello", "mid-valid"),
+    ])
+
+    assert_equal(app.messenger_post(), "ok", "oversized Messenger batch response")
+    assert_equal(len(requests.calls), 2, "bounded Messenger reply count")
+    assert_equal(
+        [call[1]["json"]["recipient"]["id"] for call in requests.calls],
+        ["user-limit", "user-valid"],
+        "oversized Messenger batch continuation",
+    )
+
+
 def test_messenger_post_applies_replay_claims_per_batch_message():
     app, request, _response, requests = load_app()
     request.json = messenger_batch_payload([
@@ -1843,6 +1864,28 @@ def test_slack_command_trims_text_before_bot_call():
     assert_equal(response.status, 200, "trimmed Slack text status")
 
 
+def test_slack_command_rejects_oversized_text_before_bot_call():
+    app, request, response, _requests = load_app()
+
+    configure_slack_request(request, "x" * 1000)
+    response.status = 200
+
+    body = app.slack_handler()
+
+    assert_equal(body, "bot: " + ("x" * 1000), "maximum Slack text response")
+    assert_equal(response.status, 200, "maximum Slack text status")
+
+    app, request, response, _requests = load_app()
+    configure_slack_request(request, "x" * 1001)
+    response.status = 200
+
+    body = app.slack_handler()
+
+    assert_equal(body, "text too long", "oversized Slack text response")
+    assert_equal(response.status, 413, "oversized Slack text status")
+    assert_equal(sys.modules["bot"].calls, [], "oversized Slack text must not call bot")
+
+
 def test_slack_command_rejects_stale_and_future_timestamps():
     for timestamp in (int(time.time()) - 301, int(time.time()) + 1):
         app, request, response, _requests = load_app()
@@ -2157,6 +2200,21 @@ def test_standalone_slack_handler_rejects_missing_text():
     assert_equal(bot.calls, [], "standalone missing Slack text must not call bot")
 
 
+def test_standalone_slack_handler_rejects_oversized_text():
+    slack, bot = load_slack_module()
+
+    body = slack.slack_handler(signed_slack_event("x" * 1000), now=1000)
+
+    assert_equal(body, "bot: " + ("x" * 1000), "standalone maximum Slack response")
+    assert_equal(bot.calls, ["x" * 1000], "standalone maximum Slack bot call")
+
+    slack, bot = load_slack_module()
+    body = slack.slack_handler(signed_slack_event("x" * 1001), now=1000)
+
+    assert_equal(body, "text too long", "standalone oversized Slack text response")
+    assert_equal(bot.calls, [], "standalone oversized Slack text must not call bot")
+
+
 def test_standalone_slack_handler_accepts_signed_base64_body():
     slack, bot = load_slack_module()
 
@@ -2169,6 +2227,49 @@ def test_standalone_slack_handler_accepts_signed_base64_body():
 
     assert_equal(body, "bot: do you work in finance", "base64 Slack response")
     assert_equal(bot.calls, ["do you work in finance"], "base64 Slack bot call")
+
+
+def test_channel_message_length_source_contracts():
+    limits_source = (ROOT / "channel_limits.py").read_text(encoding="utf-8")
+    app_source = (ROOT / "app.py").read_text(encoding="utf-8")
+    slack_source = (ROOT / "slack.py").read_text(encoding="utf-8")
+    runtime_tests = (ROOT / "bot_tests.py").read_text(encoding="utf-8")
+
+    assert_true(
+        "MAX_CHANNEL_MESSAGE_CHARACTERS = 1000" in limits_source,
+        "shared channel message length constant",
+    )
+    for source, label in ((app_source, "Bottle channels"), (slack_source, "standalone Slack")):
+        assert_true(
+            "from channel_limits import MAX_CHANNEL_MESSAGE_CHARACTERS" in source,
+            label + " must import the shared channel limit",
+        )
+    for contract in [
+        "if len(command_text) > MAX_CHANNEL_MESSAGE_CHARACTERS:",
+        'return "text too long"',
+        "len(message_text) <= MAX_CHANNEL_MESSAGE_CHARACTERS",
+        "MAX_WEB_CHAT_CHARACTERS = MAX_CHANNEL_MESSAGE_CHARACTERS",
+    ]:
+        assert_true(contract in app_source, "Bottle channel length contract: " + contract)
+    assert_true(
+        "if len(command_text) > MAX_CHANNEL_MESSAGE_CHARACTERS:" in slack_source,
+        "standalone Slack length guard",
+    )
+    for test_name in [
+        "test_slack_rejects_oversized_text_before_bot_call",
+        "test_facebook_webhook_skips_oversized_message_and_continues",
+    ]:
+        assert_true(test_name in runtime_tests, "runtime channel length test: " + test_name)
+
+    documents = {
+        "README.md": "Slack and Messenger bot input is limited to 1,000 trimmed Unicode characters",
+        "SECURITY.md": "Slack and Messenger bot input is limited to 1,000 trimmed Unicode characters",
+        "VISION.md": "Bound Slack and Messenger message text before TextBlob/NLTK",
+        "CHANGES.md": "1,000-character Slack and Messenger input boundary",
+    }
+    for relative_path, phrase in documents.items():
+        document = " ".join((ROOT / relative_path).read_text(encoding="utf-8").split())
+        assert_true(phrase in document, relative_path + " must document channel message bounds")
 
 
 def main():
@@ -2200,6 +2301,7 @@ def main():
         test_messenger_post_rejects_non_page_object,
         test_messenger_post_processes_valid_batch_in_payload_order,
         test_messenger_post_caps_valid_batch,
+        test_messenger_post_skips_oversized_message_and_continues_batch,
         test_messenger_post_applies_replay_claims_per_batch_message,
         test_messenger_post_debug_field_does_not_suppress_replies,
         test_messenger_debug_field_source_contracts,
@@ -2236,6 +2338,7 @@ def main():
         test_slack_command_rejects_blank_text,
         test_slack_command_rejects_non_text_values,
         test_slack_command_trims_text_before_bot_call,
+        test_slack_command_rejects_oversized_text_before_bot_call,
         test_slack_command_rejects_stale_and_future_timestamps,
         test_slack_handlers_reject_oversized_bodies,
         test_slack_signature_verifier_rejects_tampering_and_invalid_metadata,
@@ -2249,7 +2352,9 @@ def main():
         test_recent_slack_signatures_never_evicts_inflight_claims,
         test_standalone_slack_handler_rejects_blank_text,
         test_standalone_slack_handler_rejects_missing_text,
+        test_standalone_slack_handler_rejects_oversized_text,
         test_standalone_slack_handler_accepts_signed_base64_body,
+        test_channel_message_length_source_contracts,
     ]
     for test in tests:
         test()
