@@ -61,7 +61,9 @@ def slack_handler(event, now=None):
     if not recent_slack_signatures.claim(slack_signature):
         return "ok"
     try:
-        return bot.respond(command_text)
+        result = bot.respond(command_text)
+        recent_slack_signatures.complete(slack_signature)
+        return result
     except Exception:
         recent_slack_signatures.release(slack_signature)
         raise

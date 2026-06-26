@@ -101,6 +101,9 @@ SLACK_SIGNING_SECRET_PLAN_PATH = (
 SLACK_REPLAY_PLAN_PATH = (
     ROOT / "docs" / "plans" / "2026-06-17-slack-request-replay-guard.md"
 )
+SLACK_INFLIGHT_REPLAY_PLAN_PATH = (
+    ROOT / "docs" / "plans" / "2026-06-25-slack-inflight-replay.md"
+)
 WEB_CHAT_LENGTH_PLAN_PATH = (
     ROOT / "docs" / "plans" / "2026-06-17-web-chat-input-length.md"
 )
@@ -383,6 +386,9 @@ def test_completed_plans_are_in_docs_plans():
     assert_completed_plan(MESSENGER_DEBUG_FIELD_PLAN_PATH, "Messenger debug field handling")
     assert_completed_plan(SLACK_SIGNING_SECRET_PLAN_PATH, "Slack signing secret")
     assert_completed_plan(SLACK_REPLAY_PLAN_PATH, "Slack request replay guard")
+    assert_completed_plan(
+        SLACK_INFLIGHT_REPLAY_PLAN_PATH, "Slack in-flight replay claims"
+    )
     assert_completed_plan(WEB_CHAT_LENGTH_PLAN_PATH, "web chat input length")
     assert_completed_plan(NLTK_RESOURCE_GUARD_PLAN_PATH, "NLTK resource path guard")
     assert_completed_plan(MAKE_AUTHORITY_PLAN_PATH, "Make authority isolation")
@@ -1958,15 +1964,32 @@ def test_standalone_slack_handler_releases_replay_claim_after_failure():
     )
 
 
-def test_recent_slack_signatures_evicts_oldest_claim():
+def test_recent_slack_signatures_evicts_oldest_completed_claim():
     from slack_replay import RecentSlackSignatures
 
     recent = RecentSlackSignatures(2)
     assert_true(recent.claim("first"), "first Slack signature claim")
+    recent.complete("first")
     assert_true(recent.claim("second"), "second Slack signature claim")
+    recent.complete("second")
     assert_true(not recent.claim("first"), "duplicate Slack signature claim")
     assert_true(recent.claim("third"), "third Slack signature claim")
+    recent.complete("third")
     assert_true(recent.claim("first"), "evicted Slack signature can be reclaimed")
+
+
+def test_recent_slack_signatures_never_evicts_inflight_claims():
+    from slack_replay import RecentSlackSignatures
+
+    recent = RecentSlackSignatures(2)
+    assert_true(recent.claim("inflight"), "in-flight Slack signature claim")
+    for signature in ("completed-1", "completed-2", "completed-3"):
+        assert_true(recent.claim(signature), "completed Slack signature claim")
+        recent.complete(signature)
+    assert_true(
+        not recent.claim("inflight"),
+        "in-flight Slack signature must remain protected under capacity pressure",
+    )
 
 
 def test_slack_replay_source_contracts():
@@ -1977,9 +2000,15 @@ def test_slack_replay_source_contracts():
     for contract in (
             "MAX_RECENT_SLACK_SIGNATURES = 1024",
             "class RecentSlackSignatures(object):",
+            "self._inflight = set()",
+            "self._completed = OrderedDict()",
             "with self._lock:",
-            "while len(self._signatures) > self.max_entries:",
-            "self._signatures.popitem(last=False)"):
+            "if signature in self._inflight or signature in self._completed:",
+            "self._inflight.add(signature)",
+            "def complete(self, signature):",
+            "self._inflight.discard(signature)",
+            "while len(self._completed) > self.max_entries:",
+            "self._completed.popitem(last=False)"):
         assert_true(contract in replay_source, "missing Slack replay contract {0}".format(contract))
 
     for source, label in ((app_source, "Bottle"), (adapter_source, "event")):
@@ -1987,10 +2016,16 @@ def test_slack_replay_source_contracts():
         text_position = source.index("command_text = clean_text_value", verify_position)
         claim_position = source.index("recent_slack_signatures.claim(slack_signature)", text_position)
         bot_position = source.index("bot.respond(command_text)", claim_position)
-        release_position = source.index("recent_slack_signatures.release(slack_signature)", bot_position)
+        complete_position = source.index(
+            "recent_slack_signatures.complete(slack_signature)", bot_position
+        )
+        release_position = source.index(
+            "recent_slack_signatures.release(slack_signature)", complete_position
+        )
         assert_true(
-            verify_position < text_position < claim_position < bot_position < release_position,
-            "{0} Slack replay claim and release ordering".format(label),
+            verify_position < text_position < claim_position < bot_position
+            < complete_position < release_position,
+            "{0} Slack replay claim, completion, and release ordering".format(label),
         )
         assert_true(
             'return "ok"' in source[claim_position:bot_position],
@@ -2005,21 +2040,35 @@ def test_slack_replay_source_contracts():
             "test_slack_command_releases_replay_claim_after_failure",
             "test_standalone_slack_handler_suppresses_replayed_signature",
             "test_standalone_slack_handler_releases_replay_claim_after_failure",
-            "test_recent_slack_signatures_evicts_oldest_claim",
+            "test_recent_slack_signatures_evicts_oldest_completed_claim",
+            "test_recent_slack_signatures_never_evicts_inflight_claims",
             "test_slack_replay_source_contracts"):
         assert_true(test_name in registered, "Slack replay test must remain registered: {0}".format(test_name))
 
     docs = {
-        "README.md": "bounded process-local Slack signature claims",
-        "SECURITY.md": "Bounded process-local Slack signature claims",
-        "VISION.md": "Suppress repeated Slack signatures with bounded process-local state",
-        "CHANGES.md": "Suppressed repeated Slack signatures in each running process",
+        "README.md": "in-flight Slack signature claims outside the bounded",
+        "SECURITY.md": "Only completed signatures enter the bounded",
+        "VISION.md": "Keep in-flight Slack signatures protected",
+        "AGENTS.md": "In-flight Slack signatures are never capacity-evicted",
+        "CHANGES.md": "Slack in-flight replay claims",
     }
     for relative_path, phrase in docs.items():
         assert_true(
             phrase in (ROOT / relative_path).read_text(encoding="utf-8"),
             "{0} must document Slack replay suppression".format(relative_path),
         )
+    makefile = (ROOT / "Makefile").read_text(encoding="utf-8")
+    mutation_source = (
+        ROOT / "scripts" / "test_slack_replay_mutations.py"
+    ).read_text(encoding="utf-8")
+    assert_true(
+        "scripts/test_slack_replay_mutations.py" in makefile,
+        "Make test must run Slack replay mutations",
+    )
+    assert_true(
+        "Slack replay contract passed (6 mutations rejected)" in mutation_source,
+        "Slack replay mutation proof must remain explicit",
+    )
 
 
 def test_standalone_slack_handler_rejects_blank_text():
@@ -2132,7 +2181,8 @@ def main():
         test_standalone_slack_handler_accepts_valid_signature,
         test_standalone_slack_handler_suppresses_replayed_signature,
         test_standalone_slack_handler_releases_replay_claim_after_failure,
-        test_recent_slack_signatures_evicts_oldest_claim,
+        test_recent_slack_signatures_evicts_oldest_completed_claim,
+        test_recent_slack_signatures_never_evicts_inflight_claims,
         test_standalone_slack_handler_rejects_blank_text,
         test_standalone_slack_handler_rejects_missing_text,
         test_standalone_slack_handler_accepts_signed_base64_body,

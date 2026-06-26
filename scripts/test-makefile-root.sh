@@ -35,7 +35,7 @@ printf '%s|%s|%s\n' "$PWD" "$0" "$*" >> "$VALLEYBOT_COMMAND_LOG"
 EOF
 chmod +x "$FAKE_PYTHON"
 
-for script in test-makefile-root.sh check_valleybot_contracts.py test_web_chat_length_contract.py prepare_nltk_data.sh; do
+for script in test-makefile-root.sh check_valleybot_contracts.py test_slack_replay_mutations.py test_web_chat_length_contract.py prepare_nltk_data.sh; do
     cp "$FAKE_PYTHON" "$CHECKOUT/scripts/$script"
 done
 cp "$ROOT_DIR/scripts/run-python.sh" "$CHECKOUT/scripts/run-python.sh"

@@ -1,5 +1,60 @@
 # Changes
 
+## 2026-06-26T02:53:26Z — P1 concurrency/correctness — cycle: Slack in-flight replay claims
+
+### Summary
+
+The bounded Slack replay cache could evict a signature while its bot response
+was still running, allowing a concurrent exact retry to execute the command a
+second time.
+
+### Work completed
+
+- Split process-local Slack replay state into in-flight and completed claims.
+- Added explicit success completion to both Bottle and standalone handlers.
+- Preserved duplicate acknowledgement and failure-release retry recovery.
+- Added completed-cache eviction, capacity-pressure, source-order, and six
+  hostile-mutation regressions.
+
+### Threads
+
+- None; the focused repository change was implemented directly.
+
+### Files changed
+
+- `slack_replay.py`, `app.py`, and `slack.py` — explicit replay ownership.
+- `scripts/check_valleybot_contracts.py` and
+  `scripts/test_slack_replay_mutations.py` — behavior and mutation proof.
+- Security, vision, agent, README, plan, and Make verification documentation.
+
+### Validation
+
+- Dependency-free contracts — 75 tests passed after RED failed on the missing
+  `complete()` transition.
+- Slack replay mutation contract — six hostile mutations rejected.
+- Make authority matrix — all 40 target/authority cases and documented hostile
+  startup and override cases passed.
+- Python 3.14 `make check` — 75 dependency-free contracts, 43 Bottle/bot
+  runtime tests, five existing web-chat mutations, syntax, and corpus checks passed.
+- Hosted runs `28214128990` and `28214129936` — Python 3.10/3.12/3.14 and
+  Actions/Python CodeQL passed on the reviewed implementation head.
+- Codex review — attempted as requested but blocked by OpenAI API HTTP 401;
+  manual exact-head concurrency, security, and regression review found no findings.
+
+### Bugs / findings
+
+- P1: completed-cache capacity previously applied to pending Slack claims.
+
+### Blockers
+
+- No live Slack webhook was sent; multi-worker global replay suppression still
+  requires a shared store.
+
+### Next action
+
+- Merge the final hosted-green head, then load-test concurrent valid retries
+  near replay-cache capacity.
+
 ## 2026-06-25T21:16:14Z — P1 concurrency/correctness — cycle: Messenger in-flight replay claims
 
 - Threads: inspected the explicit Apache 2.0 license, default branch, open pull

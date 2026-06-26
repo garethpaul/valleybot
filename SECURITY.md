@@ -77,10 +77,12 @@ five-minute timestamp window for both entry points. Unsigned, stale, future,
 tampered, or larger-than-1-MiB Slack commands must fail before bot execution;
 the deprecated payload verification token is not an authentication fallback.
 Authenticated command text must still be textual and nonblank.
-Bounded process-local Slack signature claims suppress exact retries before a
-second bot call and are released after processing failures. Separate workers,
-restarts, and evicted entries require a shared persistent replay store for
-global suppression.
+Process-local Slack replay state keeps in-flight signatures protected until bot
+generation succeeds or fails. Only completed signatures enter the bounded
+oldest-first cache, so capacity pressure cannot evict a still-running claim;
+failures release claims for retry recovery. Separate workers, restarts, and
+evicted completed entries require a shared persistent replay store for global
+suppression.
 
 The public `/bot` route rejects chat input over 1,000 trimmed Unicode
 characters before TextBlob/NLTK processing. This limits per-request parser and
