@@ -84,8 +84,9 @@ reviewed project-local corpus directory.
   cache so provider retries do not send duplicate replies; outbound exceptions
   release their claim for recovery. Unsuccessful provider HTTP responses raise
   before reply content is accepted, allowing the webhook delivery to be
-  retried. Signed webhook batches process up to 20 valid user messages in
-  payload order. Unknown top-level Messenger fields cannot suppress valid replies.
+  retried. Signed webhook batches process up to 20 owned user messages in
+  payload order; completed replay IDs are skipped without consuming that work
+  limit. Unknown top-level Messenger fields cannot suppress valid replies.
   Messenger POST bodies larger than 1 MiB are rejected with HTTP
   413 before signature verification or JSON parsing. Generated responses that
   fail moderation use a reviewed generic fallback instead of failing a request.
@@ -134,6 +135,8 @@ reviewed project-local corpus directory.
   process-local Messenger retry guard.
 - In-flight Messenger message-ID claims are never capacity-evicted; only
   completed claims enter the bounded replay cache.
+- Replayed Messenger message IDs do not consume the bounded per-webhook work
+  limit; count only acquired claims and ID-less messages.
 - See `docs/plans/2026-06-25-messenger-inflight-replay-claims.md` for the
   concurrent replay-claim lifecycle.
 - See `docs/plans/2026-06-13-messenger-batch-processing-bound.md` for ordered,

@@ -161,14 +161,14 @@ def messenger_post():
         response.status = 400
         return "invalid payload"
 
-    messages = parse_messenger_messages(data)
-    if not messages:
-        return "ok"
-
     # send message to get bot
-    for sender, message, message_id in messages:
+    processed_messages = 0
+    for sender, message, message_id in parse_messenger_messages(data):
+        if processed_messages >= MAX_MESSENGER_MESSAGES_PER_WEBHOOK:
+            break
         if message_id and not recent_messenger_message_ids.claim(message_id):
             continue
+        processed_messages += 1
         try:
             messenger_reply(sender, message)
             if message_id:
@@ -243,13 +243,12 @@ def clean_text_value(value):
 
 def parse_messenger_messages(data):
     """
-    Return a bounded list of sender/text/message-ID tuples in payload order.
+    Yield sender/text/message-ID tuples in payload order.
     """
     entries = data.get('entry')
     if not isinstance(entries, list):
-        return []
+        return
 
-    messages = []
     for entry in entries:
         if not isinstance(entry, dict):
             continue
@@ -279,11 +278,7 @@ def parse_messenger_messages(data):
                 message_id = None
             if (sender_id and message_text and
                     len(message_text) <= MAX_CHANNEL_MESSAGE_CHARACTERS):
-                messages.append((sender_id, message_text, message_id or None))
-                if len(messages) >= MAX_MESSENGER_MESSAGES_PER_WEBHOOK:
-                    return messages
-
-    return messages
+                yield sender_id, message_text, message_id or None
 
 
 def messenger_reply(user_id, msg):
