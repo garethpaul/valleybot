@@ -1175,6 +1175,31 @@ def test_messenger_post_caps_valid_batch():
     )
 
 
+def test_messenger_post_replayed_ids_do_not_exhaust_batch_limit():
+    app, request, _response, requests = load_app()
+    events = []
+    for index in range(app.MAX_MESSENGER_MESSAGES_PER_WEBHOOK):
+        message_id = "mid-batch-replay-{0}".format(index)
+        assert_true(
+            app.recent_messenger_message_ids.claim(message_id),
+            "seed completed Messenger replay claim",
+        )
+        app.recent_messenger_message_ids.complete(message_id)
+        events.append(messenger_event(
+            "replayed-{0}".format(index), "replayed", message_id))
+    events.append(messenger_event(
+        "user-unique", "unique", "mid-batch-unique"))
+    request.json = messenger_batch_payload(events)
+
+    assert_equal(app.messenger_post(), "ok", "replay-heavy Messenger batch response")
+    assert_equal(len(requests.calls), 1, "replay-heavy Messenger batch reply count")
+    assert_equal(
+        requests.calls[0][1]["json"]["recipient"]["id"],
+        "user-unique",
+        "replay-heavy Messenger batch unique recipient",
+    )
+
+
 def test_messenger_post_skips_oversized_message_and_continues_batch():
     app, request, _response, requests = load_app()
     request.json = messenger_batch_payload([
@@ -1406,39 +1431,49 @@ def test_messenger_batch_source_contracts():
     runtime_tests = (ROOT / "bot_tests.py").read_text(encoding="utf-8")
     for contract in (
             "MAX_MESSENGER_MESSAGES_PER_WEBHOOK = 20",
-            "messages = parse_messenger_messages(data)",
-            "for sender, message, message_id in messages:",
+            "processed_messages = 0",
+            "for sender, message, message_id in parse_messenger_messages(data):",
+            "if processed_messages >= MAX_MESSENGER_MESSAGES_PER_WEBHOOK:",
+            "processed_messages += 1",
             "if not isinstance(sender, dict) or not isinstance(message, dict):",
-            "messages.append((sender_id, message_text, message_id or None))",
-            "if len(messages) >= MAX_MESSENGER_MESSAGES_PER_WEBHOOK:",
-            "return messages"):
+            "yield sender_id, message_text, message_id or None"):
         assert_true(contract in source, "missing Messenger batch contract {0}".format(contract))
     assert_true(
         "return sender_id, message_text, message_id or None" not in source,
         "Messenger parser must not regress to first-message return semantics",
     )
+    assert_true(
+        "messages.append((sender_id, message_text, message_id or None))" not in source,
+        "Messenger parser must not spend the work cap before replay claims",
+    )
     for test_name in (
             "test_facebook_webhook_replies_to_valid_messages_in_order",
-            "test_facebook_webhook_caps_valid_message_batch"):
+            "test_facebook_webhook_caps_valid_message_batch",
+            "test_facebook_replayed_ids_do_not_exhaust_batch_limit"):
         assert_true(test_name in runtime_tests, "missing Bottle/WebTest batch coverage {0}".format(test_name))
 
-    parse_position = source.index("messages = parse_messenger_messages(data)")
-    loop_position = source.index("for sender, message, message_id in messages:")
+    loop_position = source.index(
+        "for sender, message, message_id in parse_messenger_messages(data):")
+    limit_position = source.index(
+        "if processed_messages >= MAX_MESSENGER_MESSAGES_PER_WEBHOOK:",
+        loop_position,
+    )
     claim_position = source.index("recent_messenger_message_ids.claim(message_id)", loop_position)
+    count_position = source.index("processed_messages += 1", loop_position)
     reply_position = source.index("messenger_reply(sender, message)", loop_position)
     complete_position = source.index("recent_messenger_message_ids.complete(message_id)", loop_position)
     release_position = source.index("recent_messenger_message_ids.release(message_id)", loop_position)
     assert_true(
-        parse_position < loop_position < claim_position < reply_position <
+        loop_position < limit_position < claim_position < count_position < reply_position <
         complete_position < release_position,
-        "bounded extraction and per-message claim, reply, completion, and release must stay ordered",
+        "work limit, claim, count, reply, completion, and release must stay ordered",
     )
 
     docs = {
-        "README.md": "Signed webhook batches process up to 20",
-        "SECURITY.md": "Each signed webhook processes at most 20",
-        "VISION.md": "Process Messenger message batches in order",
-        "CHANGES.md": "Processed up to 20 valid Messenger user messages",
+        "README.md": "Replayed Messenger message IDs do not consume",
+        "SECURITY.md": "Completed replay IDs do not consume that work",
+        "VISION.md": "counts acquired claims and ID-less messages",
+        "CHANGES.md": "Completed replay IDs are skipped without",
     }
     for relative_path, phrase in docs.items():
         assert_true(
@@ -2301,6 +2336,7 @@ def main():
         test_messenger_post_rejects_non_page_object,
         test_messenger_post_processes_valid_batch_in_payload_order,
         test_messenger_post_caps_valid_batch,
+        test_messenger_post_replayed_ids_do_not_exhaust_batch_limit,
         test_messenger_post_skips_oversized_message_and_continues_batch,
         test_messenger_post_applies_replay_claims_per_batch_message,
         test_messenger_post_debug_field_does_not_suppress_replies,

@@ -58,9 +58,10 @@ workers or process restarts.
 In-flight Messenger message-ID claims are never capacity-evicted; only completed claims enter the bounded replay cache.
 Provider HTTP errors propagate through the webhook handler and release any
 message-ID claim so a later provider delivery can retry the outbound reply.
-Each signed webhook processes at most 20 valid user messages in payload order,
+Each signed webhook processes at most 20 owned user messages in payload order,
 limiting outbound reply amplification while preserving per-message replay
-claims and failure release.
+claims and failure release. Completed replay IDs do not consume that work
+limit, so retries cannot hide a later unique event in the same signed batch.
 Unknown top-level fields, including `debug`, do not suppress valid Messenger replies.
 Generated responses are tokenized across punctuation and non-space whitespace
 boundaries before blocked-prefix checks; this remains a narrow final-output

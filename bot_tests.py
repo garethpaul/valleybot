@@ -597,6 +597,34 @@ class TestFacebook(unittest.TestCase):
         self.assertEqual(calls[0], ('user-0', 'message-0'))
         self.assertEqual(calls[-1], ('user-19', 'message-19'))
 
+    def test_facebook_replayed_ids_do_not_exhaust_batch_limit(self):
+        calls = []
+        original_reply = app.messenger_reply
+        app.messenger_reply = lambda sender, message: calls.append(
+            (sender, message))
+        events = []
+        for index in range(app.MAX_MESSENGER_MESSAGES_PER_WEBHOOK):
+            message_id = 'batch-replay-runtime-{0}'.format(index)
+            self.assertTrue(app.recent_messenger_message_ids.claim(message_id))
+            app.recent_messenger_message_ids.complete(message_id)
+            events.append({
+                'sender': {'id': 'replayed-{0}'.format(index)},
+                'message': {'text': 'replayed', 'mid': message_id},
+            })
+        events.append({
+            'sender': {'id': 'user-unique'},
+            'message': {'text': 'unique', 'mid': 'mid-batch-unique'},
+        })
+
+        try:
+            response = self.post_signed_json(
+                {'object': 'page', 'entry': [{'messaging': events}]})
+        finally:
+            app.messenger_reply = original_reply
+
+        self.assertEqual(response.status_int, 200)
+        self.assertEqual(calls, [('user-unique', 'unique')])
+
     def test_facebook_webhook_skips_oversized_message_and_continues(self):
         calls = []
         original_reply = app.messenger_reply

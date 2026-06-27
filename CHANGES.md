@@ -1,5 +1,56 @@
 # Changes
 
+## 2026-06-26T20:50:03-07:00 — P1 correctness/availability — cycle: Messenger replay-heavy batch cap
+
+### Summary
+
+Messenger now applies its 20-message webhook limit only to events that acquire
+replay ownership or have no message ID. Completed replay IDs are skipped without
+consuming work capacity, so they cannot hide a later unique event in the same
+signed batch.
+
+### Work completed
+
+- Converted Messenger event extraction from a capped intermediate list to a
+  lazy payload-order iterator.
+- Moved the work cap into the webhook handler and checked it before claiming the
+  next unique event.
+- Counted work only after a replay claim succeeds, while preserving ID-less
+  compatibility, reply ordering, completion, and failure release.
+- Added dependency-free and Bottle/WebTest regressions for 20 completed replay
+  IDs followed by one unique event.
+- Updated security, contributor, roadmap, and implementation-plan evidence.
+
+### Files
+
+- `app.py` — lazy Messenger parsing and owned-work accounting.
+- `bot_tests.py`, `scripts/check_valleybot_contracts.py` — runtime, dependency-free,
+  and source-order contracts.
+- `AGENTS.md`, `README.md`, `SECURITY.md`, `VISION.md` — documented replay and
+  batch-limit semantics.
+- `docs/plans/2026-06-26-messenger-replay-batch-cap.md` — implementation plan.
+
+### Tests
+
+- Focused dependency-free replay-heavy batch regression: passed after reproducing
+  the prior zero-reply failure.
+- `make check PYTHON=/tmp/valleybot-20260626-venv/bin/python`: passed with 82
+  dependency-free contracts, 6 rejected Slack replay mutations, 5 rejected web
+  chat length mutations, and 46 Bottle/WebTest runtime tests on Python 3.14.6.
+- `git diff --check`: passed.
+
+### Findings and blockers
+
+- Bug fixed: the parser previously spent the complete 20-message budget before
+  the handler checked replay ownership.
+- Replay state remains process-local and does not coordinate across workers or
+  process restarts.
+
+### Next action
+
+- Publish the exact reviewed head and merge only after hosted Python and CodeQL
+  checks pass.
+
 ## 2026-06-26T12:19:26Z — P1 resilience — cycle: channel message length boundary
 
 ### Summary

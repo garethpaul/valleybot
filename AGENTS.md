@@ -55,6 +55,8 @@
   enter the bounded replay cache, and failures release claims for retry.
 - In-flight Messenger message-ID claims are never capacity-evicted; only
   completed claims enter the bounded replay cache.
+- Replayed Messenger message IDs do not consume the bounded per-webhook work
+  limit; count only acquired claims and ID-less messages.
 - Preserve punctuation and non-space whitespace token boundaries in the final
   response filter; changes to moderation text still require human review.
 - Keep Slack and Messenger message text within the shared channel limit before
