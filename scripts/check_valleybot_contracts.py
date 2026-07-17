@@ -407,10 +407,14 @@ def test_completed_plans_are_in_docs_plans():
     registered = registered_main_tests(
         (ROOT / "scripts" / "check_valleybot_contracts.py").read_text(encoding="utf-8")
     )
-    assert_true(
-        "test_slack_replay_source_contracts" in registered,
-        "Slack replay source contracts must remain registered",
-    )
+    for required in (
+            "test_slack_replay_source_contracts",
+            "test_make_gate_runner_execution_is_observed",
+            "test_ci_runs_the_gate_without_error_suppression"):
+        assert_true(
+            required in registered,
+            "{0} must remain registered in main()".format(required),
+        )
 
 
 def test_runtime_and_ci_contracts():
@@ -601,6 +605,112 @@ def test_make_authority_boundary_is_truthful():
         "4 raw Make-syntax controls with the GNU Make 4.4 command-root pre-load boundary",
     ):
         assert_true(contract in authority_test, "Make authority harness must include {0}".format(contract))
+
+
+def test_make_gate_runner_execution_is_observed():
+    """The gate must reach, and gate on, every reviewed runner.
+
+    `make check` delegates entirely to prerequisites, so a source-text pin on a
+    runner's own contents proves nothing about whether the runner still runs or
+    whether its verdict still fails the build. Four independent neuters are
+    invisible to a substring pin: `|| true`, a `-` recipe prefix, deleting the
+    invocation line outright, and severing the `check` -> `verify` chain. This
+    test pins the chain and the exact invocation lines; the execution and
+    gating properties themselves are observed out-of-band by
+    scripts/test-makefile-root.sh, which is cross-guarded below.
+    """
+    makefile = (ROOT / "Makefile").read_text(encoding="utf-8")
+    makefile_lines = makefile.splitlines()
+    line_set = set(makefile_lines)
+
+    for contract in (
+            "check:: clean root-test verify",
+            "verify:: root-test lint test build",
+            "test:: prepare-corpora",
+            "build:: lint",
+            "root-test::"):
+        assert_true(
+            contract in line_set,
+            "make check prerequisite chain must keep {0!r}".format(contract),
+        )
+
+    runner_prefix = "\tREPOSITORY_PYTHON='$(REPOSITORY_PYTHON_LITERAL)' "
+    launcher = "'$(REPOSITORY_ROOT_LITERAL)/scripts/run-python.sh' "
+    for runner_line in (
+            "\t/bin/sh '$(REPOSITORY_ROOT_LITERAL)/scripts/test-makefile-root.sh'",
+            runner_prefix + "'$(REPOSITORY_ROOT_LITERAL)/scripts/prepare_nltk_data.sh'",
+            runner_prefix + launcher
+            + "'$(REPOSITORY_ROOT_LITERAL)/scripts/check_valleybot_contracts.py'",
+            runner_prefix + launcher
+            + "'$(REPOSITORY_ROOT_LITERAL)/scripts/test_slack_replay_mutations.py'",
+            runner_prefix + launcher
+            + "'$(REPOSITORY_ROOT_LITERAL)/scripts/test_web_chat_length_contract.py'",
+            "\tcd '$(REPOSITORY_ROOT_LITERAL)' && /usr/bin/env "
+            "SLACK_SIGNING_SECRET=test-slack-signing-secret "
+            "MESSENGER_TOKEN=test-page-token "
+            "MESSENGER_VERIFY_TOKEN=test-verify-token "
+            "REPOSITORY_PYTHON='$(REPOSITORY_PYTHON_LITERAL)' "
+            + launcher + "'$(REPOSITORY_ROOT_LITERAL)/bot_tests.py'"):
+        assert_equal(
+            makefile_lines.count(runner_line),
+            1,
+            "exactly one un-neutered gate invocation of {0!r}".format(runner_line),
+        )
+
+    for index, line in enumerate(makefile_lines, start=1):
+        if not line.startswith("\t"):
+            continue
+        recipe = line[1:]
+        while recipe[:1] in ("@", "+"):
+            recipe = recipe[1:]
+        assert_true(
+            not recipe.startswith("-"),
+            "Makefile recipe line {0} must not ignore errors with a '-' prefix".format(index),
+        )
+        for neuter in ("|| true", "|| :", "|| exit 0", "|| /bin/true", "; true", "set +e"):
+            assert_true(
+                neuter not in recipe,
+                "Makefile recipe line {0} must not discard a failure with {1!r}".format(
+                    index, neuter
+                ),
+            )
+
+    authority_test = (ROOT / "scripts" / "test-makefile-root.sh").read_text(encoding="utf-8")
+    for contract in (
+            "VALLEYBOT_FAIL_MATCH",
+            "make check never invoked the runner matching:",
+            "make check swallowed a failing runner matching:",
+            "make check ignored errors from the runner matching:",
+            '[ "$injected" -eq 7 ]',
+            "7 runner failure-injection cases"):
+        assert_true(
+            contract in authority_test,
+            "Make authority harness must keep observing runner gating: {0!r}".format(contract),
+        )
+
+
+def test_ci_runs_the_gate_without_error_suppression():
+    workflow = CI_WORKFLOW_PATH.read_text(encoding="utf-8")
+    workflow_lines = workflow.splitlines()
+    assert_true(
+        "continue-on-error" not in workflow,
+        "CI must not let a failing gate step continue on error",
+    )
+    for step in (
+            '        run: /usr/bin/make check PYTHON="$(command -v python)"',
+            '        run: cd "$(mktemp -d)" && /usr/bin/make -C "$GITHUB_WORKSPACE" '
+            'check PYTHON="$(command -v python)"',
+            # Two make-independent observers: a severed check/verify chain makes
+            # `make check` vacuously green, so CI must also reach the gate
+            # observer and this checker without going through make.
+            '        run: /bin/sh scripts/test-makefile-root.sh',
+            '        run: REPOSITORY_PYTHON="$(command -v python)" '
+            'scripts/run-python.sh scripts/check_valleybot_contracts.py'):
+        assert_equal(
+            workflow_lines.count(step),
+            1,
+            "CI must invoke the gate directly: {0!r}".format(step),
+        )
 
 
 def test_nltk_resource_path_guard_contracts():
@@ -2312,6 +2422,8 @@ def main():
         test_completed_plans_are_in_docs_plans,
         test_runtime_and_ci_contracts,
         test_make_authority_boundary_is_truthful,
+        test_make_gate_runner_execution_is_observed,
+        test_ci_runs_the_gate_without_error_suppression,
         test_nltk_resource_path_guard_contracts,
         test_shell_entrypoints_use_portable_cdpath_reset,
         test_prepare_corpora_uses_project_local_nltk_data_contract,

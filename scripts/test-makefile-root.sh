@@ -32,6 +32,15 @@ FAKE_PYTHON="$TEMP_ROOT/trusted python's \"quoted\" \`touch VALLEYBOT_PYTHON_MAR
 cat >"$FAKE_PYTHON" <<'EOF'
 #!/bin/sh
 printf '%s|%s|%s\n' "$PWD" "$0" "$*" >> "$VALLEYBOT_COMMAND_LOG"
+if [ -n "${VALLEYBOT_FAIL_MATCH:-}" ]; then
+    case "$0 $*" in
+        *"$VALLEYBOT_FAIL_MATCH"*)
+            printf 'PLANTED RUNNER FAILURE: %s\n' "$VALLEYBOT_FAIL_MATCH" >&2
+            exit 9
+            ;;
+    esac
+fi
+exit 0
 EOF
 chmod +x "$FAKE_PYTHON"
 
@@ -100,6 +109,54 @@ for target in build check clean lint prepare-corpora root-test test verify; do
     done
 done
 [ "$executed" -eq 40 ]
+
+# `make check` must both REACH every reviewed gate runner and PROPAGATE its
+# failure. A source-text pin cannot see either property: `|| true`, a `-` recipe
+# prefix, a deleted invocation line, or a severed `check`/`verify` prerequisite
+# all leave the remaining pinned lines byte-identical. This observer runs the
+# real Makefile out-of-band and injects a non-zero exit into exactly one runner
+# at a time, so it sees the verdict rather than the text.
+inject_failure() {
+    match=$1
+    : >"$LOG"
+    set +e
+    (cd "$CONTROL_DIR" && VALLEYBOT_COMMAND_LOG="$LOG" VALLEYBOT_FAIL_MATCH="$match" \
+        make_run -f "$MAKEFILE" "PYTHON=$FAKE_PYTHON" check) >"$TEMP_ROOT/inject.out" 2>&1
+    status=$?
+    set -e
+    if ! grep -F -q -e "$match" "$LOG"; then
+        printf '%s\n' "make check never invoked the runner matching: $match" >&2
+        exit 1
+    fi
+    if [ "$status" -eq 0 ]; then
+        printf '%s\n' "make check swallowed a failing runner matching: $match" >&2
+        exit 1
+    fi
+    if grep -Fq '(ignored)' "$TEMP_ROOT/inject.out"; then
+        printf '%s\n' "make check ignored errors from the runner matching: $match" >&2
+        exit 1
+    fi
+}
+
+injected=0
+for match in \
+    "$CHECKOUT/scripts/test-makefile-root.sh" \
+    "$CHECKOUT/scripts/prepare_nltk_data.sh" \
+    "$CHECKOUT/scripts/check_valleybot_contracts.py" \
+    "$CHECKOUT/scripts/test_slack_replay_mutations.py" \
+    "$CHECKOUT/scripts/test_web_chat_length_contract.py" \
+    "$CHECKOUT/bot_tests.py" \
+    "-m py_compile"; do
+    inject_failure "$match"
+    injected=$((injected + 1))
+done
+[ "$injected" -eq 7 ]
+
+# Negative control: with nothing injected the same invocation must pass, so the
+# assertions above cannot be satisfied by an unconditionally red gate.
+: >"$LOG"
+(cd "$CONTROL_DIR" && VALLEYBOT_COMMAND_LOG="$LOG" make_run -f "$MAKEFILE" "PYTHON=$FAKE_PYTHON" check) >"$TEMP_ROOT/inject-control.out" 2>&1
+grep -F -q -e "$CHECKOUT/scripts/check_valleybot_contracts.py" "$LOG"
 
 rm -f "$LOG"
 (cd "$CONTROL_DIR" && VALLEYBOT_COMMAND_LOG="$LOG" make_run -f "$MAKEFILE" "PYTHON=$FAKE_PYTHON" check) >/dev/null 2>&1
@@ -208,4 +265,4 @@ for flag in -n --just-print --dry-run --recon -t --touch -q --question -i --igno
     grep -Fq 'non-executing or error-ignoring MAKEFLAGS are not supported' "$TEMP_ROOT/flag"
 done
 
-printf '%s\n' 'Make authority tests passed: 40 target/authority cases, literal hostile Python path, 4 raw Make-syntax controls with the GNU Make 4.4 command-root pre-load boundary, MAKEFILE_LIST command rejection and safe environment neutralization, 2 startup-boundary cases, cleanup containment, global override shell rejection, PATH-Python rejection, isolated Python startup, caller MAKEFLAGS rejection, and 10 unsafe mode rejections'
+printf '%s\n' 'Make authority tests passed: 40 target/authority cases, 7 runner failure-injection cases proving make check reaches and gates on every reviewed runner, literal hostile Python path, 4 raw Make-syntax controls with the GNU Make 4.4 command-root pre-load boundary, MAKEFILE_LIST command rejection and safe environment neutralization, 2 startup-boundary cases, cleanup containment, global override shell rejection, PATH-Python rejection, isolated Python startup, caller MAKEFLAGS rejection, and 10 unsafe mode rejections'
