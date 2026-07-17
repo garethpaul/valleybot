@@ -37,6 +37,14 @@ jobs:
         run: /usr/bin/make check PYTHON="$(command -v python)"
       - name: Verify external working directory
         run: cd "$(mktemp -d)" && /usr/bin/make -C "$GITHUB_WORKSPACE" check PYTHON="$(command -v python)"
+      # Independent of `make check`: if the check -> verify -> root-test/test
+      # prerequisite chain is ever severed, `make check` goes green while running
+      # nothing. These two steps invoke the gate observer and the contract
+      # checker directly, so a fully disconnected gate is still caught here.
+      - name: Verify the gate observer independently of make
+        run: /bin/sh scripts/test-makefile-root.sh
+      - name: Verify repository contracts independently of make
+        run: REPOSITORY_PYTHON="$(command -v python)" scripts/run-python.sh scripts/check_valleybot_contracts.py
 
   codeql:
     name: CodeQL (${{ matrix.language }})

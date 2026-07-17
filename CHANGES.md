@@ -1,5 +1,29 @@
 # Changes
 
+## 2026-07-17T00:00:00-07:00 — P1 verification gap — cycle: Gate runner execution observation
+
+### Summary
+
+`make check` now observes that every reviewed gate runner executes and that its
+verdict fails the build. Previously the gate asserted that runner source text
+existed but never that the runners ran or gated: `|| true` or a `-` prefix on a
+runner invocation let the checker print `AssertionError` while `make check`
+exited 0, deleting an invocation removed a mutation control silently, and
+`check:: clean` dropped the entire gate with a green exit.
+
+### Work completed
+
+- Added 7 out-of-band failure-injection cases to `scripts/test-makefile-root.sh`
+  that assert each runner is both reached and gated on, with a negative control.
+- Made `root-test` a direct prerequisite of `check` so the observer cannot be
+  disconnected by severing `check -> verify`.
+- Pinned the prerequisite chain and all six runner invocation lines whole-line,
+  and rejected `-` prefixes, `|| true`-style neuters, and CI `continue-on-error`.
+- Added two make-independent CI steps that invoke the gate observer and the
+  contract checker directly.
+
+See `docs/plans/2026-07-17-gate-runner-execution-observation.md`.
+
 ## 2026-06-26T20:50:03-07:00 — P1 correctness/availability — cycle: Messenger replay-heavy batch cap
 
 ### Summary

@@ -112,7 +112,7 @@ root-test::
 
 verify:: root-test lint test build
 
-check:: clean verify
+check:: clean root-test verify
 	/usr/bin/find '$(REPOSITORY_ROOT_LITERAL)' -type f \( -name '*.pyc' -o -name '*.pyo' \) -delete
 	/usr/bin/find '$(REPOSITORY_ROOT_LITERAL)' -type d -name '__pycache__' -prune -exec /bin/rm -rf {} +
 endef
