@@ -1,5 +1,5 @@
 bottle==0.13.4
-nltk==3.9.4
+nltk==3.10.0
 requests==2.34.2
 textblob==0.20.0
 WebTest==3.0.7
